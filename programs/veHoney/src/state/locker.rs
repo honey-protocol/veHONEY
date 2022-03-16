@@ -25,5 +25,5 @@ pub struct LockerParams {
     /// Whether or not the locking whitelist system is enabled.
     pub whitelist_enabled: bool,
     /// The weight of a maximum vote lock relative to the total number of tokens locked.
-    pub max_stake_vote_multiplier: u8,
+    pub multiplier: u8,
 }
