@@ -4,6 +4,7 @@ use vipers::*;
 pub mod constants;
 pub mod context;
 pub mod error;
+pub mod macros;
 pub mod state;
 pub use context::*;
 pub use state::*;
@@ -54,6 +55,12 @@ pub mod ve_honey {
         }
         ctx.accounts.process(amount, duration)?;
 
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
+    pub fn exit(ctx: Context<Exit>) -> Result<()> {
+        ctx.accounts.process()?;
         Ok(())
     }
 }
