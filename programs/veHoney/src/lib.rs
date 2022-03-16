@@ -1,4 +1,12 @@
 use anchor_lang::prelude::*;
+use vipers::*;
+
+pub mod constants;
+pub mod context;
+pub mod error;
+pub mod state;
+pub use context::*;
+pub use state::*;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -6,10 +14,9 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 pub mod ve_honey {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+    #[access_control(ctx.accounts.validate())]
+    pub fn init_locker(ctx: Context<InitLocker>, params: LockerParams) -> Result<()> {
+        ctx.accounts.process(unwrap_bump!(ctx, "locker"), params)?;
         Ok(())
     }
 }
-
-#[derive(Accounts)]
-pub struct Initialize {}

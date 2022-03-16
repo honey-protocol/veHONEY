@@ -1,0 +1,16 @@
+use anchor_lang::prelude::*;
+
+#[account]
+#[derive(Debug)]
+pub struct WhitelistEntry {
+    /// [Locker] that this whitelist entry belongs to
+    pub locker: Pubkey,
+    /// bump seed
+    pub bump: u8,
+    /// Key of the program_id allowed to call the `lock` CPI
+    pub program_id: Pubkey,
+    /// The account authorized to be the [Escrow::owner] with this CPI.
+    /// If set to [anchor_lang::solana_program::system_program::ID],
+    /// all accounts are allowed to be the [Escrow::owner]
+    pub owner: Pubkey,
+}
