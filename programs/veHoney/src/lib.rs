@@ -42,4 +42,18 @@ pub mod ve_honey {
         ctx.accounts.process()?;
         Ok(())
     }
+
+    #[access_control(ctx.accounts.validate())]
+    pub fn lock<'info>(
+        ctx: Context<'_, '_, '_, 'info, Lock<'info>>,
+        amount: u64,
+        duration: i64,
+    ) -> Result<()> {
+        if ctx.accounts.locker.params.whitelist_enabled {
+            ctx.accounts.check_whitelisted(ctx.remaining_accounts)?;
+        }
+        ctx.accounts.process(amount, duration)?;
+
+        Ok(())
+    }
 }

@@ -7,4 +7,16 @@ pub enum ProtocolError {
     EscrowNotEnded,
     #[msg("Invalid locker admin")]
     InvalidLockerAdmin,
+    #[msg("Lockup duration must at least be the min stake duration.")]
+    LockupDurationTooShort,
+    #[msg("Lockup duration must at most be the max stake duration.")]
+    LockupDurationTooLong,
+    #[msg("A voting escrow refresh cannot shorten the escrow time remaining.")]
+    RefreshCannotShorten,
+    #[msg("Program whitelist enabled; please provide whitelist entry and instructions sysvar")]
+    MustProvideWhitelist,
+    #[msg("CPI caller not whitelisted to invoke lock instruction.")]
+    ProgramNotWhitelisted,
+    #[msg("CPI caller not whitelisted for escrow owner to invoke lock instruction.")]
+    EscrowOwnerNotWhitelisted,
 }
