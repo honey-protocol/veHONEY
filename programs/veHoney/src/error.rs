@@ -5,4 +5,6 @@ use anchor_lang::prelude::*;
 pub enum ProtocolError {
     #[msg("Escrow has not ended.")]
     EscrowNotEnded,
+    #[msg("Invalid locker admin")]
+    InvalidLockerAdmin,
 }

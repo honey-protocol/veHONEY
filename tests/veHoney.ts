@@ -33,6 +33,7 @@ describe("veHoney Test", () => {
   const TOKEN_PROGRAM_ID = anchor.Spl.token().programId;
   const LAMPORTS_PER_SOL = anchor.web3.LAMPORTS_PER_SOL;
 
+  const admin = anchor.web3.Keypair.generate();
   const user = anchor.web3.Keypair.generate();
   let mint: Token;
   const mintAuthority = anchor.web3.Keypair.generate();
@@ -75,6 +76,7 @@ describe("veHoney Test", () => {
     const lt = program.addEventListener("InitLockerEvent", (e, s) => {
       console.log("Initialize Locker in Slot: ", s);
       console.log("Locker: ", e.locker.toString());
+      console.log("Locker admin: ", e.admin.toString());
       console.log("Token mint: ", e.tokenMint.toString());
       console.log("Min stake duration: ", e.params.minStakeDuration.toString());
       console.log("Max stake duration: ", e.params.maxStakeDuration.toString());
@@ -92,7 +94,7 @@ describe("veHoney Test", () => {
     );
 
     await program.rpc
-      .initLocker(lockerParams, {
+      .initLocker(admin.publicKey, lockerParams, {
         accounts: {
           payer: payer.publicKey,
           base: base.publicKey,
@@ -103,7 +105,9 @@ describe("veHoney Test", () => {
         signers: [payer, base],
       })
       .then((_) => {
-        program.removeEventListener(lt);
+        setTimeout(() => {
+          program.removeEventListener(lt);
+        }, 1000);
       });
 
     const lockerAccount = await program.account.locker.fetch(locker);
@@ -122,6 +126,7 @@ describe("veHoney Test", () => {
     assert.ok(
       lockerAccount.params.whitelistEnabled === lockerParams.whitelistEnabled
     );
+    assert.ok(lockerAccount.admin.equals(admin.publicKey));
   });
 
   it("Initialize Escrow ...", async () => {
@@ -143,16 +148,22 @@ describe("veHoney Test", () => {
       program.programId
     );
 
-    await program.rpc.initEscrow({
-      accounts: {
-        payer: user.publicKey,
-        locker,
-        escrow,
-        escrowOwner: user.publicKey,
-        systemProgram: SYSTEM_PROGRAM,
-      },
-      signers: [user],
-    });
+    await program.rpc
+      .initEscrow({
+        accounts: {
+          payer: user.publicKey,
+          locker,
+          escrow,
+          escrowOwner: user.publicKey,
+          systemProgram: SYSTEM_PROGRAM,
+        },
+        signers: [user],
+      })
+      .then((_) => {
+        setTimeout(() => {
+          program.removeEventListener(lt);
+        }, 1000);
+      });
 
     const assTokens = await Token.getAssociatedTokenAddress(
       ASSOCIATED_TOKEN_PROGRAM_ID,

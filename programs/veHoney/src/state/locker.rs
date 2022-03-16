@@ -12,6 +12,9 @@ pub struct Locker {
     /// Total number of tokens locked in the escrow.
     pub locked_supply: u64,
 
+    /// Administrator of the [Locker].
+    pub admin: Pubkey,
+
     /// Locker params.
     pub params: LockerParams,
 }

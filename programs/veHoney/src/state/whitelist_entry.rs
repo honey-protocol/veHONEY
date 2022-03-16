@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[account]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct WhitelistEntry {
     /// [Locker] that this whitelist entry belongs to
     pub locker: Pubkey,

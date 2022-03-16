@@ -27,17 +27,19 @@ pub struct InitLocker<'info> {
 }
 
 impl<'info> InitLocker<'info> {
-    pub fn process(&mut self, bump: u8, params: LockerParams) -> Result<()> {
+    pub fn process(&mut self, bump: u8, admin: Pubkey, params: LockerParams) -> Result<()> {
         let locker = &mut self.locker;
 
         locker.token_mint = self.token_mint.key();
         locker.base = self.base.key();
         locker.bump = bump;
+        locker.admin = admin;
         locker.params = params;
 
         emit!(InitLockerEvent {
             locker: locker.key(),
             token_mint: locker.token_mint,
+            admin,
             params
         });
 
@@ -59,6 +61,8 @@ pub struct InitLockerEvent {
     pub locker: Pubkey,
     /// Mint of the token that can be used to join the [Locker].
     pub token_mint: Pubkey,
+    /// Admin of the [Locker].
+    pub admin: Pubkey,
     /// [LockerParams].
     pub params: LockerParams,
 }
