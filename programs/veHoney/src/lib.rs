@@ -19,4 +19,10 @@ pub mod ve_honey {
         ctx.accounts.process(unwrap_bump!(ctx, "locker"), params)?;
         Ok(())
     }
+
+    #[access_control(ctx.accounts.validate())]
+    pub fn init_escrow(ctx: Context<InitEscrow>) -> Result<()> {
+        ctx.accounts.process(unwrap_bump!(ctx, "escrow"))?;
+        Ok(())
+    }
 }
