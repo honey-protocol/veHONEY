@@ -1,7 +1,7 @@
 use crate::constants::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
-use anchor_spl::token::Mint;
+use anchor_spl::token::{Mint, TokenAccount};
 use vipers::*;
 
 #[derive(Accounts)]
@@ -21,6 +21,8 @@ pub struct InitLocker<'info> {
     pub locker: Box<Account<'info, Locker>>,
     /// Mint of the token that can be used to join the [Locker].
     pub token_mint: Box<Account<'info, Mint>>,
+    /// Associated token account that belongs to [Locker].
+    pub locked_tokens: Box<Account<'info, TokenAccount>>,
 
     /// System program.
     pub system_program: Program<'info, System>,
@@ -31,10 +33,7 @@ impl<'info> InitLocker<'info> {
         let locker = &mut self.locker;
 
         locker.token_mint = self.token_mint.key();
-        locker.locked_tokens = anchor_spl::associated_token::get_associated_token_address(
-            &locker.key(),
-            &self.token_mint.key(),
-        );
+        locker.locked_tokens = self.locked_tokens.key();
         locker.base = self.base.key();
         locker.bump = bump;
         locker.admin = admin;
@@ -55,6 +54,14 @@ impl<'info> InitLocker<'info> {
 
 impl<'info> Validate<'info> for InitLocker<'info> {
     fn validate(&self) -> Result<()> {
+        assert_keys_eq!(
+            anchor_spl::associated_token::get_associated_token_address(
+                &self.locker.key(),
+                &self.token_mint.key(),
+            ),
+            self.locked_tokens
+        );
+
         Ok(())
     }
 }

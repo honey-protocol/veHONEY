@@ -17,7 +17,7 @@ pub struct InitEscrow<'info> {
         seeds = [
             ESCROW_SEED.as_bytes(),
             locker.key().as_ref(),
-            locker.last_escrow_id.to_le_bytes().as_ref(),
+            locker.last_escrow_id.to_string().as_ref(),
             escrow_owner.key().as_ref(),
         ],
         bump,

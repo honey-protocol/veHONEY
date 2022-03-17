@@ -66,11 +66,6 @@ impl<'info> Lock<'info> {
 
         escrow.update_lock_event(locker, amount, next_escrow_started_at, next_escrow_ends_at)?;
 
-        invariant!(
-            locker.locked_supply == self.locked_tokens.amount,
-            ProtocolError::LockedSupplyMismatch
-        );
-
         emit!(LockEvent {
             locker: locker.key(),
             locker_supply: locker.locked_supply,

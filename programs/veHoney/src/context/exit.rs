@@ -41,7 +41,7 @@ impl<'info> Exit<'info> {
                     token::Transfer {
                         from: self.locked_tokens.to_account_info(),
                         to: self.destination_tokens.to_account_info(),
-                        authority: self.escrow.to_account_info(),
+                        authority: self.locker.to_account_info(),
                     },
                 )
                 .with_signer(seeds),
@@ -51,11 +51,6 @@ impl<'info> Exit<'info> {
 
         let locker = &mut self.locker;
         locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(self.escrow.amount));
-
-        invariant!(
-            locker.locked_supply == self.locked_tokens.amount,
-            ProtocolError::LockedSupplyMismatch
-        );
 
         emit!(ExitEscrowEvent {
             escrow_owner: self.escrow.owner,

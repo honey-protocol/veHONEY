@@ -50,9 +50,9 @@ pub mod ve_honey {
         amount: u64,
         duration: i64,
     ) -> Result<()> {
-        if ctx.accounts.locker.params.whitelist_enabled {
-            ctx.accounts.check_whitelisted(ctx.remaining_accounts)?;
-        }
+        // if ctx.accounts.locker.params.whitelist_enabled {
+        //     ctx.accounts.check_whitelisted(ctx.remaining_accounts)?;
+        // }
         ctx.accounts.process(amount, duration)?;
 
         Ok(())
@@ -61,6 +61,12 @@ pub mod ve_honey {
     #[access_control(ctx.accounts.validate())]
     pub fn exit(ctx: Context<Exit>) -> Result<()> {
         ctx.accounts.process()?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
+    pub fn transfer(ctx: Context<TransferEscrow>, amount: u64) -> Result<()> {
+        ctx.accounts.process(amount)?;
         Ok(())
     }
 }
