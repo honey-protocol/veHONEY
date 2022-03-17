@@ -19,4 +19,12 @@ pub enum ProtocolError {
     ProgramNotWhitelisted,
     #[msg("CPI caller not whitelisted for escrow owner to invoke lock instruction.")]
     EscrowOwnerNotWhitelisted,
+    #[msg("Escrow was already expired.")]
+    EscrowExpired,
+    #[msg("Token lock failed, locked supply mismatches the exact amount.")]
+    LockedSupplyMismatch,
+    #[msg("The escrow has already locked.")]
+    EscrowInUse,
+    #[msg("The escrow doesn't have balance")]
+    EscrowNoBalance,
 }

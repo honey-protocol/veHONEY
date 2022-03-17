@@ -12,14 +12,15 @@ pub struct Escrow {
     /// bump seed
     pub bump: u8,
 
-    /// The token account holding the escrow tokens.
-    pub tokens: Pubkey,
     /// Amount of tokens staked.
     pub amount: u64,
     /// When the [Escrow::owner] started their escrow.
     pub escrow_started_at: i64,
     /// When the escrow unlocks; i.e. the [Escrow::owner] is scheduled to be allowed to withdraw their tokens.
     pub escrow_ends_at: i64,
+
+    /// Unique index of [Escrow].
+    pub escrow_id: u64,
 }
 
 impl Escrow {
@@ -39,7 +40,12 @@ impl Escrow {
         Ok(())
     }
 
-    pub fn update_transfer_event() -> Result<()> {
+    pub fn update_transfer_event(&mut self, from: &mut Self, transfer_amount: u64) -> Result<()> {
+        self.amount = unwrap_int!(self.amount.checked_add(transfer_amount));
+        self.escrow_started_at = from.escrow_started_at;
+        self.escrow_ends_at = from.escrow_ends_at;
+        from.amount = unwrap_int!(from.amount.checked_sub(transfer_amount));
+
         Ok(())
     }
 }

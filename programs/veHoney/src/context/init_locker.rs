@@ -31,14 +31,20 @@ impl<'info> InitLocker<'info> {
         let locker = &mut self.locker;
 
         locker.token_mint = self.token_mint.key();
+        locker.locked_tokens = anchor_spl::associated_token::get_associated_token_address(
+            &locker.key(),
+            &self.token_mint.key(),
+        );
         locker.base = self.base.key();
         locker.bump = bump;
         locker.admin = admin;
+        locker.last_escrow_id = 0;
         locker.params = params;
 
         emit!(InitLockerEvent {
             locker: locker.key(),
             token_mint: locker.token_mint,
+            token_address: locker.locked_tokens,
             admin,
             params
         });
@@ -61,6 +67,8 @@ pub struct InitLockerEvent {
     pub locker: Pubkey,
     /// Mint of the token that can be used to join the [Locker].
     pub token_mint: Pubkey,
+    /// Token address the users can lock in.
+    pub token_address: Pubkey,
     /// Admin of the [Locker].
     pub admin: Pubkey,
     /// [LockerParams].

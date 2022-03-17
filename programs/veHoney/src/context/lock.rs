@@ -15,9 +15,9 @@ pub struct Lock<'info> {
     /// [Escrow].
     #[account(mut)]
     pub escrow: Box<Account<'info, Escrow>>,
-    /// Token account held by the [Escrow].
+    /// Token account held by the [Locker].
     #[account(mut)]
-    pub escrow_tokens: Box<Account<'info, TokenAccount>>,
+    pub locked_tokens: Box<Account<'info, TokenAccount>>,
     /// Authority of the [Escrow].
     pub escrow_owner: Signer<'info>,
     /// The source of tokens.
@@ -53,7 +53,7 @@ impl<'info> Lock<'info> {
                     self.token_program.to_account_info(),
                     token::Transfer {
                         from: self.source_tokens.to_account_info(),
-                        to: self.escrow_tokens.to_account_info(),
+                        to: self.locked_tokens.to_account_info(),
                         authority: self.escrow_owner.to_account_info(),
                     },
                 ),
@@ -65,6 +65,11 @@ impl<'info> Lock<'info> {
         let escrow = &mut self.escrow;
 
         escrow.update_lock_event(locker, amount, next_escrow_started_at, next_escrow_ends_at)?;
+
+        invariant!(
+            locker.locked_supply == self.locked_tokens.amount,
+            ProtocolError::LockedSupplyMismatch
+        );
 
         emit!(LockEvent {
             locker: locker.key(),
@@ -117,7 +122,7 @@ impl<'info> Lock<'info> {
 impl<'info> Validate<'info> for Lock<'info> {
     fn validate(&self) -> Result<()> {
         assert_keys_eq!(self.locker, self.escrow.locker);
-        assert_keys_eq!(self.escrow.tokens, self.escrow_tokens);
+        assert_keys_eq!(self.locker.locked_tokens, self.locked_tokens);
         assert_keys_eq!(self.escrow.owner, self.escrow_owner);
         assert_keys_eq!(self.escrow_owner, self.source_tokens.owner);
 

@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::error::*;
-use crate::escrow_seeds;
+use crate::locker_seeds;
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount};
@@ -19,9 +19,9 @@ pub struct Exit<'info> {
     pub escrow: Box<Account<'info, Escrow>>,
     /// Authority of the [Escrow].
     pub escrow_owner: Signer<'info>,
-    /// Tokens locked up in the [Escrow].
+    /// Tokens locked up in the [Locker].
     #[account(mut)]
-    pub escrow_tokens: Box<Account<'info, TokenAccount>>,
+    pub locked_tokens: Box<Account<'info, TokenAccount>>,
     /// Destination for the tokens to unlock.
     #[account(mut)]
     pub destination_tokens: Box<Account<'info, TokenAccount>>,
@@ -32,14 +32,14 @@ pub struct Exit<'info> {
 
 impl<'info> Exit<'info> {
     pub fn process(&mut self) -> Result<()> {
-        let seeds: &[&[&[u8]]] = escrow_seeds!(self.escrow);
+        let seeds: &[&[&[u8]]] = locker_seeds!(self.locker);
 
         if self.escrow.amount > 0 {
             token::transfer(
                 CpiContext::new(
                     self.token_program.to_account_info(),
                     token::Transfer {
-                        from: self.escrow_tokens.to_account_info(),
+                        from: self.locked_tokens.to_account_info(),
                         to: self.destination_tokens.to_account_info(),
                         authority: self.escrow.to_account_info(),
                     },
@@ -52,10 +52,15 @@ impl<'info> Exit<'info> {
         let locker = &mut self.locker;
         locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(self.escrow.amount));
 
+        invariant!(
+            locker.locked_supply == self.locked_tokens.amount,
+            ProtocolError::LockedSupplyMismatch
+        );
+
         emit!(ExitEscrowEvent {
             escrow_owner: self.escrow.owner,
             locker: locker.key(),
-            locker_supply: locker.locked_supply,
+            locked_supply: locker.locked_supply,
             timestamp: Clock::get()?.unix_timestamp,
             released_amount: self.escrow.amount
         });
@@ -68,7 +73,7 @@ impl<'info> Validate<'info> for Exit<'info> {
     fn validate(&self) -> Result<()> {
         assert_keys_eq!(self.locker, self.escrow.locker);
         assert_keys_eq!(self.escrow.owner, self.escrow_owner);
-        assert_keys_eq!(self.escrow.tokens, self.escrow_tokens);
+        assert_keys_eq!(self.locker.locked_tokens, self.locked_tokens);
         let now = Clock::get()?.unix_timestamp;
         msg!(
             "now: {}; escrow_ends_at: {}",
@@ -96,7 +101,7 @@ pub struct ExitEscrowEvent {
     /// Timestamp
     pub timestamp: i64,
     /// The amount of tokens locked inside the [Locker].
-    pub locker_supply: u64,
+    pub locked_supply: u64,
     /// The amount released from the [Escrow].
     pub released_amount: u64,
 }

@@ -9,11 +9,16 @@ pub struct Locker {
     pub bump: u8,
     /// Mint of the token that must be locked in the locker.
     pub token_mint: Pubkey,
+    /// Tokens vault locked in [Locker].
+    pub locked_tokens: Pubkey,
     /// Total number of tokens locked in the escrow.
     pub locked_supply: u64,
 
     /// Administrator of the [Locker].
     pub admin: Pubkey,
+
+    /// Last id of [Escrow] that belongs to [Locker].
+    pub last_escrow_id: u64,
 
     /// Locker params.
     pub params: LockerParams,
