@@ -6,6 +6,7 @@ declare_id!("4V68qajTiVHm3Pm9fQoV8D4tEYBmq3a34R9NV5TymLr7");
 
 pub mod constants {
     pub const TOKEN_VAULT_SEED: &str = "TokenVault";
+    pub const AUTHORITY_SEED: &str = "VaultAuthority";
 }
 
 #[program]
@@ -20,14 +21,14 @@ pub mod stake {
         let cpi_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             token::SetAuthority {
-                current_authority: ctx.accounts.authority.to_account_info(),
+                current_authority: ctx.accounts.origin_authority.to_account_info(),
                 account_or_mint: ctx.accounts.token_mint.to_account_info(),
             },
         );
         token::set_authority(
             cpi_ctx,
             AuthorityType::MintTokens,
-            Some(ctx.accounts.token_vault.key()),
+            Some(ctx.accounts.authority.key()),
         )?;
 
         Ok(())
@@ -38,17 +39,13 @@ pub mod stake {
         bump: u8,
         mint_authority: Pubkey,
     ) -> Result<()> {
-        let seeds = token_vault_seeds!(
-            token_mint = ctx.accounts.token_mint.key(),
-            p_token_mint = ctx.accounts.p_token_mint.key(),
-            bump = bump
-        );
+        let seeds = authority_seeds!(token_mint = ctx.accounts.token_mint.key(), bump = bump);
         let signer: &[&[&[u8]]] = &[&seeds[..]];
 
         let cpi_ctx = CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             token::SetAuthority {
-                current_authority: ctx.accounts.token_vault.to_account_info(),
+                current_authority: ctx.accounts.authority.to_account_info(),
                 account_or_mint: ctx.accounts.token_mint.to_account_info(),
             },
             signer,
@@ -58,7 +55,12 @@ pub mod stake {
         Ok(())
     }
 
-    pub fn stake(ctx: Context<Stake>, bump: u8, amount: u64, duration: i64) -> Result<()> {
+    pub fn stake<'info>(
+        ctx: Context<'_, '_, '_, 'info, Stake<'info>>,
+        bump: u8,
+        amount: u64,
+        duration: i64,
+    ) -> Result<()> {
         assert!(amount != 0);
 
         let cpi_ctx = CpiContext::new(
@@ -72,11 +74,7 @@ pub mod stake {
 
         token::burn(cpi_ctx, amount)?;
 
-        let seeds = token_vault_seeds!(
-            token_mint = ctx.accounts.token_mint.key(),
-            p_token_mint = ctx.accounts.p_token_mint.key(),
-            bump = bump
-        );
+        let seeds = authority_seeds!(token_mint = ctx.accounts.token_mint.key(), bump = bump);
         let signer: &[&[&[u8]]] = &[&seeds[..]];
 
         let cpi_ctx = CpiContext::new_with_signer(
@@ -84,7 +82,7 @@ pub mod stake {
             token::MintTo {
                 mint: ctx.accounts.token_mint.to_account_info(),
                 to: ctx.accounts.token_vault.to_account_info(),
-                authority: ctx.accounts.token_vault.to_account_info(),
+                authority: ctx.accounts.authority.to_account_info(),
             },
             signer,
         );
@@ -99,11 +97,12 @@ pub mod stake {
                 locked_tokens: ctx.accounts.locked_tokens.to_account_info(),
                 escrow_owner: ctx.accounts.user_authority.to_account_info(),
                 source_tokens: ctx.accounts.token_vault.to_account_info(),
-                source_tokens_authority: ctx.accounts.token_vault.to_account_info(),
+                source_tokens_authority: ctx.accounts.authority.to_account_info(),
                 token_program: ctx.accounts.token_program.to_account_info(),
             },
             signer,
-        );
+        )
+        .with_remaining_accounts(ctx.remaining_accounts.to_vec());
 
         ve_honey::cpi::lock(cpi_ctx, amount, duration)?;
 
@@ -127,6 +126,20 @@ macro_rules! token_vault_seeds {
     };
 }
 
+#[macro_export]
+macro_rules! authority_seeds {
+    (
+        token_mint = $token_mint:expr,
+        bump = $bump:expr
+    ) => {
+        &[
+            constants::AUTHORITY_SEED.as_bytes(),
+            &$token_mint.to_bytes()[..],
+            &[$bump],
+        ]
+    };
+}
+
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     #[account(mut)]
@@ -136,7 +149,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         token::mint = token_mint,
-        token::authority = token_vault,
+        token::authority = authority,
         seeds = [
             constants::TOKEN_VAULT_SEED.as_bytes(),
             token_mint.key().as_ref(),
@@ -146,6 +159,15 @@ pub struct Initialize<'info> {
         payer = payer
     )]
     pub token_vault: Box<Account<'info, TokenAccount>>,
+    /// CHECK: authortiy of the vault.
+    #[account(
+        seeds = [
+            constants::AUTHORITY_SEED.as_bytes(),
+            token_mint.key().as_ref(),
+        ],
+        bump
+    )]
+    pub authority: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
@@ -164,12 +186,22 @@ pub struct SetMintAuthority<'info> {
             token_mint.key().as_ref(),
             p_token_mint.key().as_ref()
         ],
-        bump = bump
+        bump,
+        constraint = token_vault.owner == authority.key()
     )]
     pub token_vault: Box<Account<'info, TokenAccount>>,
+    /// CHECK: authority to be set as mint authority.
+    #[account(
+        seeds = [
+            constants::AUTHORITY_SEED.as_bytes(),
+            token_mint.key().as_ref(),
+        ],
+        bump = bump
+    )]
+    pub authority: UncheckedAccount<'info>,
     /// the previous mint authoirity of the token
     #[account(address = token_mint.mint_authority.unwrap())]
-    pub authority: Signer<'info>,
+    pub origin_authority: Signer<'info>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -185,9 +217,19 @@ pub struct ReclaimMintAuthority<'info> {
             token_mint.key().as_ref(),
             p_token_mint.key().as_ref()
         ],
-        bump = bump
+        bump,
+        constraint = token_vault.owner == authority.key()
     )]
     pub token_vault: Box<Account<'info, TokenAccount>>,
+    /// CHECK:
+    #[account(
+        seeds = [
+            constants::AUTHORITY_SEED.as_bytes(),
+            token_mint.key().as_ref()
+        ],
+        bump = bump
+    )]
+    pub authority: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -212,15 +254,28 @@ pub struct Stake<'info> {
             token_mint.key().as_ref(),
             p_token_mint.key().as_ref()
         ],
-        bump = bump
+        bump,
+        constraint = token_vault.owner == authority.key()
     )]
     pub token_vault: Box<Account<'info, TokenAccount>>,
+    /// CHECK:
+    #[account(
+        seeds = [
+            constants::AUTHORITY_SEED.as_bytes(),
+            token_mint.key().as_ref()
+        ],
+        bump = bump
+    )]
+    pub authority: UncheckedAccount<'info>,
 
     /// CHECK: veHoney locker
+    #[account(mut)]
     pub locker: UncheckedAccount<'info>,
     /// CHECK: veHoney escrow that belongs to user wallets.
+    #[account(mut)]
     pub escrow: UncheckedAccount<'info>,
     /// CHECK: locked tokens of the escrow.
+    #[account(mut)]
     pub locked_tokens: UncheckedAccount<'info>,
     /// CHECK: locker program.
     pub locker_program: UncheckedAccount<'info>,

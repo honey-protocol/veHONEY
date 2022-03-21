@@ -5,8 +5,8 @@ import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
 import { VeHoney } from "../target/types/ve_honey";
+import { Stake } from "../target/types/stake";
 import * as constants from "./constants";
-import { whitelistTestIdl, WhitelistTestTypes } from "./workspace";
 
 // const idl = JSON.parse(fs.readFileSync("./target/idl/ve_honey.json", "utf8"));
 // const programId = new anchor.web3.PublicKey(
@@ -35,17 +35,17 @@ describe("veHoney Test", () => {
   const LAMPORTS_PER_SOL = anchor.web3.LAMPORTS_PER_SOL;
 
   const admin = anchor.web3.Keypair.generate();
-  const user1 = anchor.web3.Keypair.generate();
-  const user2 = anchor.web3.Keypair.generate();
-  let mint: Token;
-  const mintAuthority = anchor.web3.Keypair.generate();
+  const user = anchor.web3.Keypair.generate();
+  let honeyMint: Token;
+  let pHoneyMint: Token;
+  const honeyMintAuthority = anchor.web3.Keypair.generate();
+  const pHoneyMintAuthority = anchor.web3.Keypair.generate();
   const base = anchor.web3.Keypair.generate();
-  let user1Token: anchor.web3.PublicKey,
-    user2Token: anchor.web3.PublicKey,
+  let userPHoneyToken: anchor.web3.PublicKey,
+    userHoneyToken: anchor.web3.PublicKey,
     locker: anchor.web3.PublicKey,
+    escrow: anchor.web3.PublicKey,
     lockedTokens: anchor.web3.PublicKey,
-    escrow1: anchor.web3.PublicKey,
-    escrow2: anchor.web3.PublicKey,
     whitelistEntry: anchor.web3.PublicKey;
   const lockerParams = {
     whitelistEnabled: true,
@@ -53,11 +53,11 @@ describe("veHoney Test", () => {
     maxStakeDuration: new anchor.BN(5),
     multiplier: 48,
   };
-  const testProgramId = anchor.web3.Keypair.generate().publicKey;
-  const testProgram = new Program<WhitelistTestTypes>(
-    whitelistTestIdl,
-    testProgramId
-  );
+  const stakeProgram = anchor.workspace.Stake as Program<Stake>;
+  let tokenVault: anchor.web3.PublicKey,
+    tokenVaultBump: number,
+    vaultAuthority: anchor.web3.PublicKey,
+    vaultAuthorityBump: number;
 
   function sleep(ms: number) {
     return new Promise((resolve) => {
@@ -71,27 +71,33 @@ describe("veHoney Test", () => {
       await publicConnection.requestAirdrop(payer.publicKey, LAMPORTS_PER_SOL)
     );
 
-    console.log("Airdrop 1 SOL to user1 ...");
+    console.log("Airdrop 1 SOL to user ...");
     await publicConnection.confirmTransaction(
-      await publicConnection.requestAirdrop(user1.publicKey, LAMPORTS_PER_SOL)
+      await publicConnection.requestAirdrop(user.publicKey, LAMPORTS_PER_SOL)
     );
 
-    console.log("Airdrop 1 SOL to user2 ...");
-    await publicConnection.confirmTransaction(
-      await publicConnection.requestAirdrop(user2.publicKey, LAMPORTS_PER_SOL)
-    );
-
-    mint = await Token.createMint(
+    honeyMint = await Token.createMint(
       publicConnection,
       payer,
-      mintAuthority.publicKey,
+      honeyMintAuthority.publicKey,
       null,
       6,
       TOKEN_PROGRAM_ID
     );
 
-    user1Token = await mint.createAssociatedTokenAccount(user1.publicKey);
-    await mint.mintTo(user1Token, mintAuthority, [], 5000000);
+    pHoneyMint = await Token.createMint(
+      publicConnection,
+      payer,
+      pHoneyMintAuthority.publicKey,
+      null,
+      6,
+      TOKEN_PROGRAM_ID
+    );
+
+    userPHoneyToken = await pHoneyMint.createAssociatedTokenAccount(
+      user.publicKey
+    );
+    await pHoneyMint.mintTo(userPHoneyToken, pHoneyMintAuthority, [], 5000000);
   });
 
   it("Initialize Locker ...", async () => {
@@ -100,7 +106,6 @@ describe("veHoney Test", () => {
       console.log("Locker: ", e.locker.toString());
       console.log("Locker admin: ", e.admin.toString());
       console.log("Token mint: ", e.tokenMint.toString());
-      console.log("Token address:", e.token_address.toString());
       console.log("Min stake duration: ", e.params.minStakeDuration.toString());
       console.log("Max stake duration: ", e.params.maxStakeDuration.toString());
       console.log("Multiplier: ", e.params.multiplier);
@@ -116,34 +121,15 @@ describe("veHoney Test", () => {
       program.programId
     );
 
-    lockedTokens = await Token.getAssociatedTokenAddress(
-      ASSOCIATED_TOKEN_PROGRAM_ID,
-      TOKEN_PROGRAM_ID,
-      mint.publicKey,
-      locker,
-      true
-    );
-
     await program.rpc
       .initLocker(admin.publicKey, lockerParams, {
         accounts: {
           payer: payer.publicKey,
           base: base.publicKey,
           locker,
-          tokenMint: mint.publicKey,
-          lockedTokens,
+          tokenMint: honeyMint.publicKey,
           systemProgram: SYSTEM_PROGRAM,
         },
-        preInstructions: [
-          Token.createAssociatedTokenAccountInstruction(
-            ASSOCIATED_TOKEN_PROGRAM_ID,
-            TOKEN_PROGRAM_ID,
-            mint.publicKey,
-            lockedTokens,
-            locker,
-            payer.publicKey
-          ),
-        ],
         signers: [payer, base],
       })
       .finally(() => {
@@ -156,8 +142,7 @@ describe("veHoney Test", () => {
 
     assert.ok(lockerAccount.bump === lockerBump);
     assert.ok(lockerAccount.base.equals(base.publicKey));
-    assert.ok(lockerAccount.tokenMint.equals(mint.publicKey));
-    assert.ok(lockerAccount.lockedTokens.equals(lockedTokens));
+    assert.ok(lockerAccount.tokenMint.equals(honeyMint.publicKey));
     assert.ok(lockerAccount.lockedSupply.eq(new anchor.BN(0)));
     assert.ok(
       lockerAccount.params.maxStakeDuration.eq(lockerParams.maxStakeDuration)
@@ -170,42 +155,41 @@ describe("veHoney Test", () => {
       lockerAccount.params.whitelistEnabled === lockerParams.whitelistEnabled
     );
     assert.ok(lockerAccount.admin.equals(admin.publicKey));
-    assert.ok(lockerAccount.lastEscrowId.eq(new anchor.BN(0)));
   });
 
-  it("Initialize Escrow ...", async () => {
-    const lt = program.addEventListener("InitEscrowEvent", (e, s) => {
-      console.log("Initialize Escrow in Slot: ", s);
-      console.log("Escrow: ", e.escrow.toString());
-      console.log("Escrow ID: ", e.escrowId.toString());
+  it("Approve program lock privilege ...", async () => {
+    const lt = program.addEventListener("ApproveLockPrivilegeEvent", (e, s) => {
+      console.log("Approve Program Lock in Slot: ", s);
       console.log("Locker: ", e.locker.toString());
-      console.log("Escrow Owner: ", e.escrow_owner.toString());
+      console.log("ProgramId: ", e.programId.toString());
+      console.log("Owner of the Escrow: ", e.owner.toString());
       console.log("Timestamp: ", e.timestamp.toString());
     });
 
-    const escrowId = (await program.account.locker.fetch(locker)).lastEscrowId;
-
-    let escrowBump: number;
-    [escrow1, escrowBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from(constants.ESCROW_SEED),
-        locker.toBuffer(),
-        Buffer.from(escrowId.toString(10)),
-        user1.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
+    let whitelistEntryBump: number;
+    [whitelistEntry, whitelistEntryBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from(constants.WHITELIST_ENTRY_SEED),
+          locker.toBuffer(),
+          stakeProgram.programId.toBuffer(),
+          SYSTEM_PROGRAM.toBuffer(),
+        ],
+        program.programId
+      );
 
     await program.rpc
-      .initEscrow({
+      .approveProgramLockPrivilege({
         accounts: {
-          payer: user1.publicKey,
+          payer: payer.publicKey,
           locker,
-          escrow: escrow1,
-          escrowOwner: user1.publicKey,
+          lockerAdmin: admin.publicKey,
+          whitelistEntry,
+          executableId: stakeProgram.programId,
+          whitelistedOwner: SYSTEM_PROGRAM,
           systemProgram: SYSTEM_PROGRAM,
         },
-        signers: [user1],
+        signers: [payer, admin],
       })
       .finally(() => {
         setTimeout(() => {
@@ -213,205 +197,186 @@ describe("veHoney Test", () => {
         }, 2000);
       });
 
-    const escrowAccount = await program.account.escrow.fetch(escrow1);
-
-    assert.ok(escrowAccount.bump === escrowBump);
-    assert.ok(escrowAccount.locker.equals(locker));
-    assert.ok(escrowAccount.owner.equals(user1.publicKey));
-    assert.ok(escrowAccount.amount.eq(new anchor.BN(0)));
-    assert.ok(escrowAccount.escrowStartedAt.eq(new anchor.BN(0)));
-    assert.ok(escrowAccount.escrowEndsAt.eq(new anchor.BN(0)));
-    assert.ok(escrowAccount.escrowId.eq(escrowId));
-    assert.ok(
-      (await program.account.locker.fetch(locker)).lastEscrowId.eq(
-        escrowAccount.escrowId.add(new anchor.BN(1))
-      )
+    const whitelistEntryAccount = await program.account.whitelistEntry.fetch(
+      whitelistEntry
     );
+
+    assert.ok(whitelistEntryAccount.locker.equals(locker));
+    assert.ok(whitelistEntryAccount.bump === whitelistEntryBump);
+    assert.ok(whitelistEntryAccount.programId.equals(stakeProgram.programId));
+    assert.ok(whitelistEntryAccount.owner.equals(SYSTEM_PROGRAM));
   });
 
-  // it("Approve program lock privilege ...", async () => {
-  //   const lt = program.addEventListener("ApproveLockPrivilegeEvent", (e, s) => {
-  //     console.log("Approve Program Lock in Slot: ", s);
-  //     console.log("Locker: ", e.locker.toString());
-  //     console.log("ProgramId: ", e.programId.toString());
-  //     console.log("Owner of the Escrow: ", e.owner.toString());
-  //     console.log("Timestamp: ", e.timestamp);
-  //   });
+  it("Initialize stake program ...", async () => {
+    [tokenVault, tokenVaultBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from(constants.TOKEN_VAULT_SEED),
+          honeyMint.publicKey.toBuffer(),
+          pHoneyMint.publicKey.toBuffer(),
+        ],
+        stakeProgram.programId
+      );
 
-  //   let whitelistEntryBump: number;
-  //   [whitelistEntry, whitelistEntryBump] =
-  //     await anchor.web3.PublicKey.findProgramAddress(
-  //       [
-  //         Buffer.from(constants.WHITELIST_ENTRY_SEED),
-  //         locker.toBuffer(),
-  //         testProgramId.toBuffer(),
-  //         SYSTEM_PROGRAM.toBuffer(),
-  //       ],
-  //       program.programId
-  //     );
+    [vaultAuthority, vaultAuthorityBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from(constants.VAULT_AUTHORITY_SEED),
+          honeyMint.publicKey.toBuffer(),
+        ],
+        stakeProgram.programId
+      );
 
-  //   await program.rpc
-  //     .approveProgramLockPrivilege({
-  //       accounts: {
-  //         payer: payer.publicKey,
-  //         locker,
-  //         lockerAdmin: admin.publicKey,
-  //         whitelistEntry,
-  //         executableId: testProgramId,
-  //         whitelistedOwner: SYSTEM_PROGRAM,
-  //         systemProgram: SYSTEM_PROGRAM,
-  //       },
-  //       signers: [payer, admin],
-  //     })
-  //     .finally(() => {
-  //       setTimeout(() => {
-  //         program.removeEventListener(lt);
-  //       }, 2000);
-  //     });
+    await stakeProgram.rpc.initialize({
+      accounts: {
+        payer: payer.publicKey,
+        tokenMint: honeyMint.publicKey,
+        pTokenMint: pHoneyMint.publicKey,
+        tokenVault,
+        authority: vaultAuthority,
+        systemProgram: SYSTEM_PROGRAM,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      },
+    });
 
-  //   const whitelistEntryAccount = await program.account.whitelistEntry.fetch(
-  //     whitelistEntry
-  //   );
+    const tokenVaultAccount = await honeyMint.getAccountInfo(tokenVault);
 
-  //   assert.ok(whitelistEntryAccount.locker.equals(locker));
-  //   assert.ok(whitelistEntryAccount.bump === whitelistEntryBump);
-  //   assert.ok(whitelistEntryAccount.programId.equals(testProgramId));
-  //   assert.ok(whitelistEntryAccount.owner.equals(SYSTEM_PROGRAM));
-  // });
+    assert.ok(tokenVaultAccount.mint.equals(honeyMint.publicKey));
+    assert.ok(tokenVaultAccount.owner.equals(vaultAuthority));
+  });
 
-  // it("Revoke program lock privilege ...", async () => {});
+  it("Set mint authority of Honey token to PDA ...", async () => {
+    await stakeProgram.rpc.setMintAuthority(vaultAuthorityBump, {
+      accounts: {
+        tokenMint: honeyMint.publicKey,
+        pTokenMint: pHoneyMint.publicKey,
+        tokenVault,
+        authority: vaultAuthority,
+        originAuthority: honeyMintAuthority.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      },
+      signers: [honeyMintAuthority],
+    });
 
-  const firstLockAmount = 3000000;
-  const duration = 2;
-  it("Lock tokens to the escrow", async () => {
-    const lt = program.addEventListener("LockEvent", (e, s) => {
+    const honeyMintAccount = await honeyMint.getMintInfo();
+
+    assert.ok(honeyMintAccount.mintAuthority.equals(vaultAuthority));
+  });
+
+  const stakeAmount = 3000000;
+  const duration = 5;
+  it("Stake pHoney tokens to lock Honey and get Escrow ...", async () => {
+    const lt1 = program.addEventListener("LockEvent", (e, s) => {
       console.log("Lock in Slot: ", s);
       console.log("Locker: ", e.locker.toString());
-      console.log("Escrow owner: ", e.escrowOwner.toString());
+      console.log("Escrow Owner: ", e.escrowOwner.toString());
       console.log("Token mint: ", e.tokenMint.toString());
       console.log("Lock amount: ", e.amount.toString());
-      console.log("Locked supply: ", e.lockerSupply.toString());
+      console.log("Locked supply: ", e.amount.toString());
       console.log("Lock duration: ", e.duration.toString());
       console.log("Prev lock ends at: ", e.prevEscrowEndsAt.toString());
       console.log("Next escrow ends at: ", e.nextEscrowEndsAt.toString());
       console.log("Next escrow started at: ", e.nextEscrowStartedAt.toString());
     });
 
-    const userBalanceBefore = (await mint.getAccountInfo(user1Token)).amount;
-    const lockerBalanceBefore = (await mint.getAccountInfo(lockedTokens))
-      .amount;
-
-    await program.rpc
-      .lock(new anchor.BN(firstLockAmount), new anchor.BN(duration), {
-        accounts: {
-          locker,
-          escrow: escrow1,
-          lockedTokens,
-          escrowOwner: user1.publicKey,
-          sourceTokens: user1Token,
-          tokenProgram: TOKEN_PROGRAM_ID,
-        },
-        signers: [user1],
-      })
-      .finally(() => {
-        setTimeout(() => {
-          program.removeEventListener(lt);
-        }, 2000);
-      });
-
-    const userBalanceAfter = (await mint.getAccountInfo(user1Token)).amount;
-    const lockerBalanceAfter = (await mint.getAccountInfo(lockedTokens)).amount;
-
-    assert.ok(
-      userBalanceBefore.sub(new anchor.BN(firstLockAmount)).eq(userBalanceAfter)
-    );
-    assert.ok(
-      lockerBalanceBefore
-        .add(new anchor.BN(firstLockAmount))
-        .eq(lockerBalanceAfter)
-    );
-
-    const lockerAccount = await program.account.locker.fetch(locker);
-    const escrow1Account = await program.account.escrow.fetch(escrow1);
-
-    assert.ok(lockerAccount.lockedSupply.eq(lockerBalanceAfter));
-    assert.ok(escrow1Account.amount.eq(new anchor.BN(firstLockAmount)));
-    assert.ok(
-      escrow1Account.escrowStartedAt
-        .add(new anchor.BN(duration))
-        .eq(escrow1Account.escrowEndsAt)
-    );
-  });
-
-  const transferAmount = 2000000;
-  it("Transfer Escrow from user1 to user2 ...", async () => {
-    const lt = program.addEventListener("TransferEvent", (e, s) => {
-      console.log("Transfer in Slot: ", s);
+    const lt2 = program.addEventListener("InitEscrowEvent", (e, s) => {
+      console.log("Initialize Escrow in Slot: ", s);
+      console.log("Escrow: ", e.escrow.toString());
       console.log("Locker: ", e.locker.toString());
-      console.log("Sender: ", e.sourceEscrowOwner.toString());
-      console.log("Sender Escrow: ", e.sourceEscrow.toString());
-      console.log("Next Sender balance: ", e.sourceBalance.toString());
-      console.log("Receiver: ", e.destinationEscrowOwner.toString());
-      console.log("Receiver Escrow: ", e.destinationEscrow.toString());
-      console.log("Next Receiver balance: ", e.destinationBalance.toString());
-      console.log("Transfer amount: ", e.amount.toString());
+      console.log("Escrow Owner: ", e.escrow_owner.toString());
       console.log("Timestamp: ", e.timestamp.toString());
     });
 
-    const escrowId = (await program.account.locker.fetch(locker)).lastEscrowId;
-    let escrow2Bump: number;
-    [escrow2, escrow2Bump] = await anchor.web3.PublicKey.findProgramAddress(
+    let escrowBump: number;
+    [escrow, escrowBump] = await anchor.web3.PublicKey.findProgramAddress(
       [
         Buffer.from(constants.ESCROW_SEED),
         locker.toBuffer(),
-        Buffer.from(escrowId.toString(10)),
-        user2.publicKey.toBuffer(),
+        user.publicKey.toBuffer(),
       ],
       program.programId
     );
 
-    const escrow1AccountBefore = await program.account.escrow.fetch(escrow1);
+    lockedTokens = await Token.getAssociatedTokenAddress(
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+      TOKEN_PROGRAM_ID,
+      honeyMint.publicKey,
+      escrow,
+      true
+    );
 
-    await program.rpc
-      .transfer(new anchor.BN(transferAmount), {
-        accounts: {
-          locker,
-          sourceEscrow: escrow1,
-          sourceEscrowOwner: user1.publicKey,
-          destinationEscrow: escrow2,
-        },
-        preInstructions: [
-          program.instruction.initEscrow({
-            accounts: {
-              payer: user1.publicKey,
-              locker,
-              escrow: escrow2,
-              escrowOwner: user2.publicKey,
-              systemProgram: SYSTEM_PROGRAM,
+    await stakeProgram.rpc
+      .stake(
+        vaultAuthorityBump,
+        new anchor.BN(stakeAmount),
+        new anchor.BN(duration),
+        {
+          accounts: {
+            tokenMint: honeyMint.publicKey,
+            pTokenMint: pHoneyMint.publicKey,
+            pTokenFrom: userPHoneyToken,
+            userAuthority: user.publicKey,
+            tokenVault,
+            authority: vaultAuthority,
+            locker,
+            escrow,
+            lockedTokens,
+            lockerProgram: program.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          },
+          remainingAccounts: [
+            {
+              pubkey: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
+              isSigner: false,
+              isWritable: false,
             },
-          }),
-        ],
-        signers: [user1],
-      })
+            {
+              pubkey: whitelistEntry,
+              isSigner: false,
+              isWritable: false,
+            },
+          ],
+          preInstructions: [
+            Token.createAssociatedTokenAccountInstruction(
+              ASSOCIATED_TOKEN_PROGRAM_ID,
+              TOKEN_PROGRAM_ID,
+              honeyMint.publicKey,
+              lockedTokens,
+              escrow,
+              user.publicKey
+            ),
+            program.instruction.initEscrow({
+              accounts: {
+                payer: user.publicKey,
+                locker,
+                escrow: escrow,
+                escrowOwner: user.publicKey,
+                systemProgram: SYSTEM_PROGRAM,
+              },
+              signers: [user],
+            }),
+          ],
+          signers: [user],
+        }
+      )
       .finally(() => {
         setTimeout(() => {
-          program.removeEventListener(lt);
+          program.removeEventListener(lt1);
+          program.removeEventListener(lt2);
         }, 2000);
       });
-    const escrow1AccountAfter = await program.account.escrow.fetch(escrow1);
-    const escrow2Account = await program.account.escrow.fetch(escrow2);
 
+    const escrowAccount = await program.account.escrow.fetch(escrow);
+
+    assert.ok(escrowAccount.bump === escrowBump);
+    assert.ok(escrowAccount.locker.equals(locker));
+    assert.ok(escrowAccount.owner.equals(user.publicKey));
+    assert.ok(escrowAccount.amount.eq(new anchor.BN(stakeAmount)));
     assert.ok(
-      escrow1AccountBefore.amount
-        .sub(new anchor.BN(transferAmount))
-        .eq(escrow1AccountAfter.amount)
-    );
-    assert.ok(escrow2Account.amount.eq(new anchor.BN(transferAmount)));
-    assert.ok(
-      escrow2Account.escrowEndsAt.eq(escrow1AccountBefore.escrowEndsAt)
-    );
-    assert.ok(
-      escrow2Account.escrowStartedAt.eq(escrow1AccountBefore.escrowStartedAt)
+      escrowAccount.escrowStartedAt
+        .add(new anchor.BN(duration))
+        .eq(escrowAccount.escrowEndsAt)
     );
   });
 
@@ -425,41 +390,40 @@ describe("veHoney Test", () => {
       console.log("Timestamp: ", e.timestamp.toString());
     });
 
-    user2Token = await Token.getAssociatedTokenAddress(
+    userHoneyToken = await Token.getAssociatedTokenAddress(
       ASSOCIATED_TOKEN_PROGRAM_ID,
       TOKEN_PROGRAM_ID,
-      mint.publicKey,
-      user2.publicKey,
-      true
+      honeyMint.publicKey,
+      user.publicKey
     );
 
     const lockerAccountBefore = await program.account.locker.fetch(locker);
-    const escrow2AccountBefore = await program.account.escrow.fetch(escrow2);
+    const escrowAccountBefore = await program.account.escrow.fetch(escrow);
 
-    await sleep(3000);
+    await sleep(6000);
 
     await program.rpc
       .exit({
         accounts: {
-          payer: user2.publicKey,
+          payer: user.publicKey,
           locker,
-          escrow: escrow2,
-          escrowOwner: user2.publicKey,
+          escrow,
+          escrowOwner: user.publicKey,
           lockedTokens,
-          destinationTokens: user2Token,
+          destinationTokens: userHoneyToken,
           tokenProgram: TOKEN_PROGRAM_ID,
         },
         preInstructions: [
           Token.createAssociatedTokenAccountInstruction(
             ASSOCIATED_TOKEN_PROGRAM_ID,
             TOKEN_PROGRAM_ID,
-            mint.publicKey,
-            user2Token,
-            user2.publicKey,
-            user2.publicKey
+            honeyMint.publicKey,
+            userHoneyToken,
+            user.publicKey,
+            user.publicKey
           ),
         ],
-        signers: [user2],
+        signers: [user],
       })
       .finally(() => {
         setTimeout(() => {
@@ -471,8 +435,61 @@ describe("veHoney Test", () => {
 
     assert.ok(
       lockerAccountBefore.lockedSupply
-        .sub(escrow2AccountBefore.amount)
+        .sub(escrowAccountBefore.amount)
         .eq(lockerAccountAfter.lockedSupply)
     );
+  });
+
+  it("Reclaim mint authority of Honey mint ...", async () => {
+    await stakeProgram.rpc.reclaimMintAuthority(
+      vaultAuthorityBump,
+      honeyMintAuthority.publicKey,
+      {
+        accounts: {
+          tokenMint: honeyMint.publicKey,
+          pTokenMint: pHoneyMint.publicKey,
+          tokenVault,
+          authority: vaultAuthority,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        },
+      }
+    );
+
+    const honeyMintAccount = await honeyMint.getMintInfo();
+    assert.ok(
+      honeyMintAccount.mintAuthority.equals(honeyMintAuthority.publicKey)
+    );
+  });
+
+  it("Revoke program lock privilege ...", async () => {
+    const lt = program.addEventListener("RevokeLockPrivilegeEvent", (e, s) => {
+      console.log("Revoke lock privilege in Slot: ", s);
+      console.log("Locker: ", e.locker.toString());
+      console.log("ProgramId: ", e.programId.toString());
+      console.log("Timestamp: ", e.timestamp.toString());
+    });
+
+    await program.rpc
+      .revokeProgramLockPrivilege({
+        accounts: {
+          payer: payer.publicKey,
+          locker,
+          lockerAdmin: admin.publicKey,
+          whitelistEntry,
+          executableId: stakeProgram.programId,
+        },
+        signers: [admin],
+      })
+      .finally(() => {
+        setTimeout(() => {
+          program.removeEventListener(lt);
+        }, 2000);
+      });
+
+    try {
+      await program.account.whitelistEntry.fetch(whitelistEntry);
+    } catch (_) {
+      assert.ok(true);
+    }
   });
 });

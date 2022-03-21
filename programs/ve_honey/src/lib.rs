@@ -50,9 +50,9 @@ pub mod ve_honey {
         amount: u64,
         duration: i64,
     ) -> Result<()> {
-        // if ctx.accounts.locker.params.whitelist_enabled {
-        //     ctx.accounts.check_whitelisted(ctx.remaining_accounts)?;
-        // }
+        if ctx.accounts.locker.params.whitelist_enabled {
+            ctx.accounts.check_whitelisted(ctx.remaining_accounts)?;
+        }
         ctx.accounts.process(amount, duration)?;
 
         Ok(())

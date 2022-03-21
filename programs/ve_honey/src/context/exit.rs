@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::error::*;
-use crate::locker_seeds;
+use crate::escrow_seeds;
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount};
@@ -32,7 +32,7 @@ pub struct Exit<'info> {
 
 impl<'info> Exit<'info> {
     pub fn process(&mut self) -> Result<()> {
-        let seeds: &[&[&[u8]]] = locker_seeds!(self.locker);
+        let seeds: &[&[&[u8]]] = escrow_seeds!(self.escrow);
 
         if self.escrow.amount > 0 {
             token::transfer(
@@ -41,7 +41,7 @@ impl<'info> Exit<'info> {
                     token::Transfer {
                         from: self.locked_tokens.to_account_info(),
                         to: self.destination_tokens.to_account_info(),
-                        authority: self.locker.to_account_info(),
+                        authority: self.escrow.to_account_info(),
                     },
                 )
                 .with_signer(seeds),
