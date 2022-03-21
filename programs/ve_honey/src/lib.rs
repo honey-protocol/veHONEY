@@ -63,10 +63,4 @@ pub mod ve_honey {
         ctx.accounts.process()?;
         Ok(())
     }
-
-    #[access_control(ctx.accounts.validate())]
-    pub fn transfer(ctx: Context<TransferEscrow>, amount: u64) -> Result<()> {
-        ctx.accounts.process(amount)?;
-        Ok(())
-    }
 }

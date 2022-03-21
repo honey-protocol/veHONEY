@@ -23,6 +23,8 @@ pub struct Lock<'info> {
     /// The source of tokens.
     #[account(mut)]
     pub source_tokens: Box<Account<'info, TokenAccount>>,
+    /// The authority of source_tokens.
+    pub source_tokens_authority: Signer<'info>,
 
     /// Token program.
     pub token_program: Program<'info, Token>,
@@ -54,7 +56,7 @@ impl<'info> Lock<'info> {
                     token::Transfer {
                         from: self.source_tokens.to_account_info(),
                         to: self.locked_tokens.to_account_info(),
-                        authority: self.escrow_owner.to_account_info(),
+                        authority: self.source_tokens_authority.to_account_info(),
                     },
                 ),
                 amount,
@@ -117,9 +119,8 @@ impl<'info> Lock<'info> {
 impl<'info> Validate<'info> for Lock<'info> {
     fn validate(&self) -> Result<()> {
         assert_keys_eq!(self.locker, self.escrow.locker);
-        assert_keys_eq!(self.locker.locked_tokens, self.locked_tokens);
+        assert_keys_eq!(self.escrow.tokens, self.locked_tokens);
         assert_keys_eq!(self.escrow.owner, self.escrow_owner);
-        assert_keys_eq!(self.escrow_owner, self.source_tokens.owner);
 
         Ok(())
     }
