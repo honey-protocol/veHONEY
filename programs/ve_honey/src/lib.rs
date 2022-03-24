@@ -9,7 +9,7 @@ pub mod state;
 pub use context::*;
 pub use state::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("CKQapf8pWoMddT15grV8UCPjiLCTHa12NRgkKV63Lc7q");
 
 #[program]
 pub mod ve_honey {

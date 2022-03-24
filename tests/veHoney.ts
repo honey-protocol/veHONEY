@@ -1,6 +1,4 @@
-const fs = require("fs");
 const assert = require("assert");
-const { exit } = require("process");
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
@@ -12,8 +10,8 @@ import * as constants from "./constants";
 // const programId = new anchor.web3.PublicKey(
 //   "CKQapf8pWoMddT15grV8UCPjiLCTHa12NRgkKV63Lc7q"
 // );
-// const clusterUrl = "https://api.devnet.solana.com";
-const clusterUrl = "http://127.0.0.1:8899";
+const clusterUrl = "https://api.devnet.solana.com";
+// const clusterUrl = "http://127.0.0.1:8899";
 
 describe("veHoney Test", () => {
   const payer = anchor.web3.Keypair.generate();
@@ -68,12 +66,14 @@ describe("veHoney Test", () => {
   it("Initialize testing ... ", async () => {
     console.log("Airdrop 1 SOL to payer ...");
     await publicConnection.confirmTransaction(
-      await publicConnection.requestAirdrop(payer.publicKey, LAMPORTS_PER_SOL)
+      await publicConnection.requestAirdrop(payer.publicKey, LAMPORTS_PER_SOL),
+      "finalized"
     );
 
     console.log("Airdrop 1 SOL to user ...");
     await publicConnection.confirmTransaction(
-      await publicConnection.requestAirdrop(user.publicKey, LAMPORTS_PER_SOL)
+      await publicConnection.requestAirdrop(user.publicKey, LAMPORTS_PER_SOL),
+      "finalized"
     );
 
     honeyMint = await Token.createMint(
