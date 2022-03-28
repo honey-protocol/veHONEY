@@ -21,12 +21,18 @@ pub mod stake {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>, params: PoolParams) -> Result<()> {
+        msg!(
+            "current: {}, starts_at: {}",
+            Clock::get()?.unix_timestamp,
+            params.starts_at
+        );
         invariant!(
             params.starts_at > Clock::get()?.unix_timestamp,
             ErrorCode::InvalidParam
         );
 
         let pool_info = &mut ctx.accounts.pool_info;
+        pool_info.version = constants::STAKE_POOL_VERSION;
         pool_info.owner = ctx.accounts.owner.key();
         pool_info.token_mint = ctx.accounts.token_mint.key();
         pool_info.p_token_mint = ctx.accounts.p_token_mint.key();
@@ -36,6 +42,7 @@ pub mod stake {
         Ok(())
     }
 
+    #[access_control(assert_initialized(&ctx.accounts.pool_info))]
     pub fn modify_params(ctx: Context<ModifyParams>, params: PoolParams) -> Result<()> {
         let pool_info = &mut ctx.accounts.pool_info;
         let now = Clock::get()?.unix_timestamp;
@@ -51,6 +58,7 @@ pub mod stake {
         Ok(())
     }
 
+    #[access_control(assert_initialized(&ctx.accounts.pool_info))]
     pub fn set_mint_authority(ctx: Context<SetMintAuthority>) -> Result<()> {
         let cpi_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -68,6 +76,7 @@ pub mod stake {
         Ok(())
     }
 
+    #[access_control(assert_initialized(&ctx.accounts.pool_info))]
     pub fn reclaim_mint_authority(
         ctx: Context<ReclaimMintAuthority>,
         mint_authority: Pubkey,
@@ -91,6 +100,7 @@ pub mod stake {
         Ok(())
     }
 
+    #[access_control(assert_initialized(&ctx.accounts.pool_info))]
     pub fn initialize_user(ctx: Context<InitializeUser>) -> Result<()> {
         let user_info = &mut ctx.accounts.user_info;
         user_info.pool_info = ctx.accounts.pool_info.key();
@@ -103,6 +113,7 @@ pub mod stake {
         Ok(())
     }
 
+    #[access_control(assert_initialized(&ctx.accounts.pool_info))]
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         invariant!(
             ctx.accounts.source.amount > amount,
@@ -125,6 +136,7 @@ pub mod stake {
         Ok(())
     }
 
+    #[access_control(assert_initialized(&ctx.accounts.pool_info))]
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         let claimable_amount = ctx
             .accounts
@@ -206,6 +218,15 @@ pub mod stake {
     }
 }
 
+fn assert_initialized(pool_info: &PoolInfo) -> Result<()> {
+    invariant!(
+        pool_info.version == constants::STAKE_POOL_VERSION,
+        ErrorCode::Uninitialized
+    );
+
+    Ok(())
+}
+
 #[macro_export]
 macro_rules! token_vault_seeds {
     (
@@ -248,6 +269,8 @@ pub enum ErrorCode {
     NotClaimable,
     #[msg("Math overflow")]
     MathOverflow,
+    #[msg("Pool is not initialized")]
+    Uninitialized,
 }
 
 #[derive(Accounts)]
@@ -281,7 +304,7 @@ pub struct Initialize<'info> {
         payer = payer
     )]
     pub token_vault: Box<Account<'info, TokenAccount>>,
-    /// CHECK: authortiy of the vault.
+    /// CHECK
     #[account(
         seeds = [
             constants::AUTHORITY_SEED.as_bytes(),
