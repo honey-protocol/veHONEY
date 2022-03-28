@@ -232,20 +232,20 @@ pub mod stake {
 
 pub fn conversion_ratio(duration: i64) -> Result<u64> {
     if duration >= 7_689_600 && duration <= 7_948_800 {
-        return Ok(1);
-    } else if duration >= 15_638_400 && duration <= 15_897_600 {
         return Ok(2);
-    } else if duration >= 31_536_000 && duration <= 31_622_400 {
+    } else if duration >= 15_638_400 && duration <= 15_897_600 {
         return Ok(5);
+    } else if duration >= 31_536_000 && duration <= 31_622_400 {
+        return Ok(10);
     }
 
     // for tests
     // if duration == 1 {
-    //     return Ok(1);
-    // } else if duration == 3 {
     //     return Ok(2);
-    // } else if duration == 12 {
+    // } else if duration == 3 {
     //     return Ok(5);
+    // } else if duration == 12 {
+    //     return Ok(10);
     // }
 
     return Err(ErrorCode::InvalidParam.into());

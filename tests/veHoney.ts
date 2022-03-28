@@ -523,7 +523,7 @@ describe("veHoney Test", () => {
     assert.ok(escrowAccount.bump === escrowBump);
     assert.ok(escrowAccount.locker.equals(locker));
     assert.ok(escrowAccount.owner.equals(user.publicKey));
-    assert.ok(escrowAccount.amount.eq(new anchor.BN(stakeAmount * 2)));
+    assert.ok(escrowAccount.amount.eq(new anchor.BN(stakeAmount * 5)));
     assert.ok(
       escrowAccount.escrowStartedAt
         .add(new anchor.BN(duration))
