@@ -168,9 +168,9 @@ pub mod stake {
         Ok(())
     }
 
+    #[access_control(assert_claimable(ctx.accounts.pool_info.params))]
     pub fn stake<'info>(
         ctx: Context<'_, '_, '_, 'info, Stake<'info>>,
-        bump: u8,
         amount: u64,
         duration: i64,
     ) -> Result<()> {
@@ -187,7 +187,10 @@ pub mod stake {
 
         token::burn(cpi_ctx, amount)?;
 
-        let seeds = authority_seeds!(token_mint = ctx.accounts.token_mint.key(), bump = bump);
+        let seeds = authority_seeds!(
+            token_mint = ctx.accounts.token_mint.key(),
+            bump = ctx.accounts.pool_info.bump
+        );
         let signer: &[&[&[u8]]] = &[&seeds[..]];
 
         let cpi_ctx = CpiContext::new_with_signer(
@@ -200,7 +203,11 @@ pub mod stake {
             signer,
         );
 
-        token::mint_to(cpi_ctx, amount)?;
+        let amount_to_mint = unwrap_int!(amount.checked_mul(conversion_ratio(duration)?));
+
+        token::mint_to(cpi_ctx, amount_to_mint)?;
+
+        ctx.accounts.token_vault.reload()?;
 
         let cpi_ctx = CpiContext::new_with_signer(
             ctx.accounts.locker_program.to_account_info(),
@@ -217,10 +224,31 @@ pub mod stake {
         )
         .with_remaining_accounts(ctx.remaining_accounts.to_vec());
 
-        ve_honey::cpi::lock(cpi_ctx, amount, duration)?;
+        ve_honey::cpi::lock(cpi_ctx, amount_to_mint, duration)?;
 
         Ok(())
     }
+}
+
+pub fn conversion_ratio(duration: i64) -> Result<u64> {
+    if duration >= 7_689_600 && duration <= 7_948_800 {
+        return Ok(1);
+    } else if duration >= 15_638_400 && duration <= 15_897_600 {
+        return Ok(2);
+    } else if duration >= 31_536_000 && duration <= 31_622_400 {
+        return Ok(5);
+    }
+
+    // for tests
+    // if duration == 1 {
+    //     return Ok(1);
+    // } else if duration == 3 {
+    //     return Ok(2);
+    // } else if duration == 12 {
+    //     return Ok(5);
+    // }
+
+    return Err(ErrorCode::InvalidParam.into());
 }
 
 pub fn close_account(account: &mut AccountInfo, destination: &mut AccountInfo) -> Result<()> {
@@ -493,8 +521,12 @@ pub struct Claim<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(bump: u8)]
 pub struct Stake<'info> {
+    #[account(
+        has_one = token_mint,
+        has_one = p_token_mint,
+    )]
+    pub pool_info: Box<Account<'info, PoolInfo>>,
     #[account(mut)]
     pub token_mint: Box<Account<'info, Mint>>,
     #[account(mut)]
@@ -523,7 +555,7 @@ pub struct Stake<'info> {
             constants::AUTHORITY_SEED.as_bytes(),
             token_mint.key().as_ref()
         ],
-        bump = bump
+        bump = pool_info.bump
     )]
     pub authority: UncheckedAccount<'info>,
 
