@@ -1,8 +1,11 @@
+use anchor_lang::__private::CLOSED_ACCOUNT_DISCRIMINATOR;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount};
 use num_traits::ToPrimitive;
 use spl_token::instruction::AuthorityType;
 use vipers::*;
+
+use std::io::Write;
 
 declare_id!("4V68qajTiVHm3Pm9fQoV8D4tEYBmq3a34R9NV5TymLr7");
 
@@ -21,11 +24,6 @@ pub mod stake {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>, params: PoolParams) -> Result<()> {
-        msg!(
-            "current: {}, starts_at: {}",
-            Clock::get()?.unix_timestamp,
-            params.starts_at
-        );
         invariant!(
             params.starts_at > Clock::get()?.unix_timestamp,
             ErrorCode::InvalidParam
@@ -136,7 +134,7 @@ pub mod stake {
         Ok(())
     }
 
-    #[access_control(assert_initialized(&ctx.accounts.pool_info))]
+    #[access_control(assert_initialized(&ctx.accounts.pool_info) assert_claimable(ctx.accounts.pool_info.params))]
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         let claimable_amount = ctx
             .accounts
@@ -159,6 +157,13 @@ pub mod stake {
             signer,
         );
         token::mint_to(cpi_ctx, claimable_amount)?;
+
+        if ctx.accounts.user_info.count == ctx.accounts.pool_info.params.max_claim_count {
+            close_account(
+                &mut ctx.accounts.user_info.to_account_info(),
+                &mut ctx.accounts.payer.to_account_info(),
+            )?;
+        }
 
         Ok(())
     }
@@ -218,10 +223,37 @@ pub mod stake {
     }
 }
 
+pub fn close_account(account: &mut AccountInfo, destination: &mut AccountInfo) -> Result<()> {
+    let dest_starting_lamports = destination.lamports();
+
+    **destination.lamports.borrow_mut() = dest_starting_lamports
+        .checked_add(account.lamports())
+        .ok_or(ErrorCode::MathOverflow)?;
+    **account.lamports.borrow_mut() = 0;
+
+    let mut data = account.data.borrow_mut();
+    let dst: &mut [u8] = &mut data;
+    let mut cursor = std::io::Cursor::new(dst);
+    cursor
+        .write_all(&CLOSED_ACCOUNT_DISCRIMINATOR)
+        .map_err(|_| ErrorCode::AnchorSerializationError)?;
+
+    Ok(())
+}
+
 fn assert_initialized(pool_info: &PoolInfo) -> Result<()> {
     invariant!(
         pool_info.version == constants::STAKE_POOL_VERSION,
         ErrorCode::Uninitialized
+    );
+
+    Ok(())
+}
+
+fn assert_claimable(pool_params: PoolParams) -> Result<()> {
+    invariant!(
+        pool_params.starts_at < Clock::get()?.unix_timestamp,
+        NotClaimable
     );
 
     Ok(())
@@ -271,6 +303,8 @@ pub enum ErrorCode {
     MathOverflow,
     #[msg("Pool is not initialized")]
     Uninitialized,
+    #[msg("Anchor serialization error")]
+    AnchorSerializationError,
 }
 
 #[derive(Accounts)]
@@ -455,7 +489,6 @@ pub struct Claim<'info> {
     )]
     pub destination: Box<Account<'info, TokenAccount>>,
 
-    pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -578,7 +611,12 @@ impl PoolUser {
 
     pub fn get_claimable_amount(&self, pool_params: PoolParams) -> Result<(u64, u8)> {
         let now = Clock::get()?.unix_timestamp;
-        let duration = unwrap_int!(now.checked_sub(self.deposited_at));
+        let claim_starts_at = if self.deposited_at > pool_params.starts_at {
+            self.deposited_at
+        } else {
+            pool_params.starts_at
+        };
+        let duration = unwrap_int!(now.checked_sub(claim_starts_at));
 
         if duration > pool_params.get_claim_period()? {
             // rest amount is claimable

@@ -46,6 +46,7 @@ describe("veHoney Test", () => {
   const pHoneyMintAuthority = anchor.web3.Keypair.generate();
   const base = anchor.web3.Keypair.generate();
   let stakePool: anchor.web3.PublicKey,
+    poolUser: anchor.web3.PublicKey,
     userPHoneyToken: anchor.web3.PublicKey,
     userHoneyToken: anchor.web3.PublicKey,
     locker: anchor.web3.PublicKey,
@@ -246,7 +247,7 @@ describe("veHoney Test", () => {
 
     poolParams = {
       startsAt: new anchor.BN(Math.floor(Date.now() / 1000) + 1),
-      claimPeriodUnit: new anchor.BN(86_400),
+      claimPeriodUnit: new anchor.BN(1),
       maxClaimCount: 21,
     };
 
@@ -291,8 +292,8 @@ describe("veHoney Test", () => {
   it("Modify params for pool info ...", async () => {
     poolParams = {
       startsAt: new anchor.BN(Math.floor(Date.now() / 1000) + 2),
-      claimPeriodUnit: new anchor.BN(86_400),
-      maxClaimCount: 22,
+      claimPeriodUnit: new anchor.BN(1),
+      maxClaimCount: 21,
     };
     await stakeProgram.rpc.modifyParams(poolParams, {
       accounts: {
@@ -330,6 +331,92 @@ describe("veHoney Test", () => {
     const honeyMintAccount = await honeyMint.getMintInfo();
 
     assert.ok(honeyMintAccount.mintAuthority.equals(vaultAuthority));
+  });
+
+  const depositAmount = 2000000;
+  it("Deposit pHoney to pool ...", async () => {
+    [poolUser] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        Buffer.from(constants.POOL_USER_SEED),
+        stakePool.toBuffer(),
+        user.publicKey.toBuffer(),
+      ],
+      stakeProgram.programId
+    );
+
+    const initializeIx = stakeProgram.instruction.initializeUser({
+      accounts: {
+        payer: user.publicKey,
+        poolInfo: stakePool,
+        userInfo: poolUser,
+        userOwner: user.publicKey,
+        systemProgram: SYSTEM_PROGRAM,
+      },
+      signers: [user],
+    });
+
+    await stakeProgram.rpc.deposit(new anchor.BN(depositAmount), {
+      accounts: {
+        poolInfo: stakePool,
+        userInfo: poolUser,
+        userOwner: user.publicKey,
+        pTokenMint: pHoneyMint.publicKey,
+        source: userPHoneyToken,
+        userAuthority: user.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      },
+      preInstructions: [initializeIx],
+      signers: [user],
+    });
+
+    const poolUserAccount = await stakeProgram.account.poolUser.fetch(poolUser);
+    assert.ok(poolUserAccount.depositAmount.eq(new anchor.BN(depositAmount)));
+    assert.ok(poolUserAccount.claimedAmount.eq(new anchor.BN(0)));
+    assert.ok(poolUserAccount.count === 0);
+    assert.ok(poolUserAccount.poolInfo.equals(stakePool));
+    assert.ok(poolUserAccount.owner.equals(user.publicKey));
+  });
+
+  it("Claim Honey ...", async () => {
+    await sleep(3000);
+
+    userHoneyToken = await Token.getAssociatedTokenAddress(
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+      TOKEN_PROGRAM_ID,
+      honeyMint.publicKey,
+      user.publicKey
+    );
+
+    await stakeProgram.rpc.claim({
+      accounts: {
+        payer: user.publicKey,
+        poolInfo: stakePool,
+        authority: vaultAuthority,
+        tokenMint: honeyMint.publicKey,
+        userInfo: poolUser,
+        userOwner: user.publicKey,
+        destination: userHoneyToken,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      },
+      preInstructions: [
+        Token.createAssociatedTokenAccountInstruction(
+          ASSOCIATED_TOKEN_PROGRAM_ID,
+          TOKEN_PROGRAM_ID,
+          honeyMint.publicKey,
+          userHoneyToken,
+          user.publicKey,
+          user.publicKey
+        ),
+      ],
+      signers: [user],
+    });
+
+    const honeyTokenAccount = await honeyMint.getAccountInfo(userHoneyToken);
+    assert.ok(honeyTokenAccount.amount.gt(new anchor.BN(0)));
+    console.log("Claimed $Honey: ", honeyTokenAccount.amount.toString());
+    const poolUserAccount = await stakeProgram.account.poolUser.fetch(poolUser);
+    assert.ok(poolUserAccount.claimedAmount.gt(new anchor.BN(0)));
+    assert.ok(poolUserAccount.count > 0);
   });
 
   // const stakeAmount = 3000000;
