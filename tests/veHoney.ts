@@ -227,15 +227,6 @@ describe("veHoney Test", () => {
         stakeProgram.programId
       );
 
-    [vaultAuthority, vaultAuthorityBump] =
-      await anchor.web3.PublicKey.findProgramAddress(
-        [
-          Buffer.from(constants.VAULT_AUTHORITY_SEED),
-          honeyMint.publicKey.toBuffer(),
-        ],
-        stakeProgram.programId
-      );
-
     [stakePool] = await anchor.web3.PublicKey.findProgramAddress(
       [
         Buffer.from(constants.POOL_INFO_SEED),
@@ -244,6 +235,12 @@ describe("veHoney Test", () => {
       ],
       stakeProgram.programId
     );
+
+    [vaultAuthority, vaultAuthorityBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from(constants.VAULT_AUTHORITY_SEED), stakePool.toBuffer()],
+        stakeProgram.programId
+      );
 
     poolParams = {
       startsAt: new anchor.BN(Math.floor(Date.now() / 1000) + 1),

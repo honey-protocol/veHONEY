@@ -80,7 +80,7 @@ pub mod stake {
         mint_authority: Pubkey,
     ) -> Result<()> {
         let seeds = authority_seeds!(
-            token_mint = ctx.accounts.token_mint.key(),
+            pool_info = ctx.accounts.pool_info.key(),
             bump = ctx.accounts.pool_info.bump
         );
         let signer: &[&[&[u8]]] = &[&seeds[..]];
@@ -142,7 +142,7 @@ pub mod stake {
             .claim(ctx.accounts.pool_info.params)?;
 
         let seeds = authority_seeds!(
-            token_mint = ctx.accounts.token_mint.key(),
+            pool_info = ctx.accounts.pool_info.key(),
             bump = ctx.accounts.pool_info.bump
         );
         let signer: &[&[&[u8]]] = &[&seeds[..]];
@@ -188,7 +188,7 @@ pub mod stake {
         token::burn(cpi_ctx, amount)?;
 
         let seeds = authority_seeds!(
-            token_mint = ctx.accounts.token_mint.key(),
+            pool_info = ctx.accounts.pool_info.key(),
             bump = ctx.accounts.pool_info.bump
         );
         let signer: &[&[&[u8]]] = &[&seeds[..]];
@@ -306,12 +306,12 @@ macro_rules! token_vault_seeds {
 #[macro_export]
 macro_rules! authority_seeds {
     (
-        token_mint = $token_mint:expr,
+        pool_info = $pool_info:expr,
         bump = $bump:expr
     ) => {
         &[
             constants::AUTHORITY_SEED.as_bytes(),
-            &$token_mint.to_bytes()[..],
+            &$pool_info.to_bytes()[..],
             &[$bump],
         ]
     };
@@ -370,7 +370,7 @@ pub struct Initialize<'info> {
     #[account(
         seeds = [
             constants::AUTHORITY_SEED.as_bytes(),
-            token_mint.key().as_ref(),
+            pool_info.key().as_ref(),
         ],
         bump
     )]
@@ -405,7 +405,7 @@ pub struct SetMintAuthority<'info> {
     #[account(
         seeds = [
             constants::AUTHORITY_SEED.as_bytes(),
-            token_mint.key().as_ref(),
+            pool_info.key().as_ref(),
         ],
         bump = pool_info.bump
     )]
@@ -430,7 +430,7 @@ pub struct ReclaimMintAuthority<'info> {
     #[account(
         seeds = [
             constants::AUTHORITY_SEED.as_bytes(),
-            token_mint.key().as_ref()
+            pool_info.key().as_ref()
         ],
         bump = pool_info.bump
     )]
@@ -497,7 +497,7 @@ pub struct Claim<'info> {
     #[account(
         seeds = [
             constants::AUTHORITY_SEED.as_bytes(),
-            token_mint.key().as_ref()
+            pool_info.key().as_ref()
         ],
         bump = pool_info.bump
     )]
@@ -553,7 +553,7 @@ pub struct Stake<'info> {
     #[account(
         seeds = [
             constants::AUTHORITY_SEED.as_bytes(),
-            token_mint.key().as_ref()
+            pool_info.key().as_ref()
         ],
         bump = pool_info.bump
     )]
