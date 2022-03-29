@@ -51,7 +51,8 @@ let ownerKey: anchor.web3.Keypair,
   honey: anchor.web3.PublicKey,
   locker: anchor.web3.PublicKey,
   poolParams: PoolParams,
-  lockerParams: LockerParams;
+  lockerParams: LockerParams,
+  whitelistEntry: anchor.web3.PublicKey;
 
 async function find_address() {
   ownerKey = anchor.web3.Keypair.fromSecretKey(
@@ -99,6 +100,15 @@ async function find_address() {
     [Buffer.from(constants.LOCKER_SEED), lockerBaseKey.publicKey.toBuffer()],
     veHoneyProgram.programId
   );
+  [whitelistEntry] = await anchor.web3.PublicKey.findProgramAddress(
+    [
+      Buffer.from(constants.WHITELIST_ENTRY_SEED),
+      locker.toBuffer(),
+      stakeProgram.programId.toBuffer(),
+      SYSTEM_PROGRAM.toBuffer(),
+    ],
+    veHoneyProgram.programId
+  );
 
   poolParams = {
     startsAt: new anchor.BN(Math.floor(Date.now() / 1000) + 36_000), // starts 10 hrs later
@@ -123,9 +133,10 @@ async function find_address() {
   console.log("Token vault: ", tokenVault.toString());
   console.log("Locker: ", locker.toString());
   console.log("Locker base: ", lockerBaseKey.publicKey.toString());
+  console.log("Whitelist Entry for Stake program: ", whitelistEntry.toString());
 
   console.log("\n ============= Stake pool params ==============");
-  console.log("Starts at: ", poolParams.startsAt.toString());
+  // console.log("Starts at: ", poolParams.startsAt.toString());
   console.log("Claim period unit: ", poolParams.claimPeriodUnit.toString());
   console.log("Claim count (days): ", poolParams.maxClaimCount);
 
@@ -180,11 +191,42 @@ async function init_locker() {
   });
 }
 
+async function set_mint_authority() {
+  await stakeProgram.rpc.setMintAuthority({
+    accounts: {
+      owner: ownerKey.publicKey,
+      poolInfo: stakePool,
+      tokenMint: honey,
+      authority: authority,
+      originAuthority: mintAuthorityKey.publicKey,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    },
+    signers: [mintAuthorityKey, ownerKey],
+  });
+}
+
+async function add_whitelist() {
+  await veHoneyProgram.rpc.approveProgramLockPrivilege({
+    accounts: {
+      payer: payer.publicKey,
+      locker,
+      lockerAdmin: ownerKey.publicKey,
+      whitelistEntry,
+      executableId: stakeProgram.programId,
+      whitelistedOwner: SYSTEM_PROGRAM,
+      systemProgram: SYSTEM_PROGRAM,
+    },
+    signers: [ownerKey],
+  });
+}
+
 (async function doo() {
   await find_address();
-  await airdrop();
-  await init_pool();
-  await init_locker();
+  // await airdrop();
+  // await init_pool();
+  // await init_locker();
+  // await set_mint_authority();
+  // await add_whitelist();
 })()
   .then(() => {
     console.log("\n Done ...");
