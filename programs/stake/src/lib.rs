@@ -231,12 +231,14 @@ pub mod stake {
 }
 
 pub fn conversion_ratio(duration: i64) -> Result<u64> {
-    if duration >= 7_689_600 && duration <= 7_948_800 {
-        return Ok(2);
-    } else if duration >= 15_638_400 && duration <= 15_897_600 {
-        return Ok(5);
-    } else if duration >= 31_536_000 && duration <= 31_622_400 {
-        return Ok(10);
+    match duration {
+        // 3 months option 89 - 92 days
+        7_689_600..=7_948_800 => Ok(2),
+        // 6 months
+        15_638_400..=15_897_600 => Ok(5),
+        // 12 months
+        31_536_000..=31_622_400 => Ok(10),
+        _ => Err(ErrorCode::InvalidParam.into()),
     }
 
     // for tests
@@ -247,8 +249,6 @@ pub fn conversion_ratio(duration: i64) -> Result<u64> {
     // } else if duration == 12 {
     //     return Ok(10);
     // }
-
-    return Err(ErrorCode::InvalidParam.into());
 }
 
 pub fn close_account(account: &mut AccountInfo, destination: &mut AccountInfo) -> Result<()> {
@@ -533,7 +533,8 @@ pub struct Stake<'info> {
     pub p_token_mint: Box<Account<'info, Mint>>,
     #[account(
         mut,
-        constraint = p_token_from.mint == p_token_mint.key()
+        constraint = p_token_from.mint == p_token_mint.key(),
+        constraint = p_token_from.owner == user_authority.key()
     )]
     pub p_token_from: Box<Account<'info, TokenAccount>>,
     pub user_authority: Signer<'info>,
