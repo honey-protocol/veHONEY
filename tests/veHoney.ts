@@ -528,6 +528,63 @@ describe("veHoney Test", () => {
     );
   });
 
+  it("Lock Honey to escrow directly ...", async () => {
+    const lt = program.addEventListener("LockEvent", (e, s) => {
+      console.log("Lock in Slot: ", s);
+      console.log("Locker: ", e.locker.toString());
+      console.log("Escrow Owner: ", e.escrowOwner.toString());
+      console.log("Token mint: ", e.tokenMint.toString());
+      console.log("Lock amount: ", e.amount.toString());
+      console.log("Locked supply: ", e.amount.toString());
+      console.log("Lock duration: ", e.duration.toString());
+      console.log("Prev lock ends at: ", e.prevEscrowEndsAt.toString());
+      console.log("Next escrow ends at: ", e.nextEscrowEndsAt.toString());
+      console.log("Next escrow started at: ", e.nextEscrowStartedAt.toString());
+    });
+
+    const honeyTokenAccount = await honeyMint.getAccountInfo(userHoneyToken);
+    const honeyTokenAmount = honeyTokenAccount.amount;
+
+    let escrowAccount = await program.account.escrow.fetch(escrow);
+    const lockedTokensAmountBefore = escrowAccount.amount;
+
+    await program.rpc
+      .lock(honeyTokenAmount, new anchor.BN(duration), {
+        accounts: {
+          locker,
+          escrow,
+          lockedTokens,
+          escrowOwner: user.publicKey,
+          sourceTokens: userHoneyToken,
+          sourceTokensAuthority: user.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        },
+        remainingAccounts: [
+          {
+            pubkey: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
+            isSigner: false,
+            isWritable: false,
+          },
+          {
+            pubkey: program.programId,
+            isSigner: false,
+            isWritable: false,
+          },
+        ],
+        signers: [user],
+      })
+      .finally(() => {
+        setTimeout(() => {
+          program.removeEventListener(lt);
+        }, 2000);
+      });
+
+    escrowAccount = await program.account.escrow.fetch(escrow);
+    const lockedTokensAmountAfter = escrowAccount.amount;
+
+    assert.ok(lockedTokensAmountAfter.gt(lockedTokensAmountBefore));
+  });
+
   it("Unlock tokens from Escrow (user2) ...", async () => {
     const lt = program.addEventListener("ExitEscrowEvent", (e, s) => {
       console.log("Exit Escrow in Slot: ", s);
