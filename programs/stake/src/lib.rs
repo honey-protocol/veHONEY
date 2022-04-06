@@ -114,7 +114,7 @@ pub mod stake {
     #[access_control(assert_initialized(&ctx.accounts.pool_info))]
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         invariant!(
-            ctx.accounts.source.amount > amount,
+            ctx.accounts.source.amount >= amount,
             ErrorCode::InsufficientFunds
         );
         invariant!(amount > 0, ErrorCode::InvalidParam);
@@ -242,12 +242,14 @@ pub fn conversion_ratio(duration: i64) -> Result<u64> {
     }
 
     // for tests
-    // if duration == 1 {
-    //     return Ok(2);
-    // } else if duration == 3 {
-    //     return Ok(5);
-    // } else if duration == 12 {
-    //     return Ok(10);
+    // match duration {
+    //     // 3 months option 89 - 92 days
+    //     1 => Ok(2),
+    //     // 6 months
+    //     3 => Ok(5),
+    //     // 12 months
+    //     12 => Ok(10),
+    //     _ => Err(ErrorCode::InvalidParam.into()),
     // }
 }
 
