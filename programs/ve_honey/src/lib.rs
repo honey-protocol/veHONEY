@@ -27,6 +27,12 @@ pub mod ve_honey {
     }
 
     #[access_control(ctx.accounts.validate())]
+    pub fn set_locker_params(ctx: Context<SetLockerParams>, params: LockerParams) -> Result<()> {
+        ctx.accounts.process(params)?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
     pub fn init_escrow(ctx: Context<InitEscrow>) -> Result<()> {
         ctx.accounts.process(unwrap_bump!(ctx, "escrow"))?;
         Ok(())
