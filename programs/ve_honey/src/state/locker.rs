@@ -1,5 +1,7 @@
+use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::pubkey::PUBKEY_BYTES;
+use num_traits::ToPrimitive;
 
 #[account]
 #[derive(Debug, Default)]
@@ -71,4 +73,33 @@ pub struct LockerParamsV2 {
 
 impl LockerParamsV2 {
     pub const LEN: usize = 8 + 8 + 8 + 1 + 1;
+
+    pub fn calculate_voter_power(&self, escrow: &EscrowV2, now: i64) -> Option<u64> {
+        if now == 0 {
+            return None;
+        }
+
+        if escrow.escrow_started_at == 0 {
+            return Some(0);
+        }
+
+        if now < escrow.escrow_started_at || now >= escrow.escrow_ends_at {
+            return Some(0);
+        }
+
+        let lockup_duration = escrow
+            .escrow_ends_at
+            .checked_sub(escrow.escrow_started_at)?;
+
+        let relevant_lockup_duration = lockup_duration.to_u64()?.min(self.max_stake_duration);
+
+        let power_if_max_lockup = escrow.amount.checked_mul(self.multiplier.into())?;
+
+        let power = (power_if_max_lockup as u128)
+            .checked_mul(relevant_lockup_duration.into())?
+            .checked_div(self.max_stake_duration.into())?
+            .to_u64()?;
+
+        Some(power)
+    }
 }

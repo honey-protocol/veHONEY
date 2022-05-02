@@ -34,6 +34,7 @@ pub struct MigrateEscrow<'info> {
             escrow_owner.key().as_ref()
         ],
         bump,
+        space = 8 + EscrowV2::LEN,
         payer = payer
     )]
     pub new_escrow: Box<Account<'info, EscrowV2>>,
