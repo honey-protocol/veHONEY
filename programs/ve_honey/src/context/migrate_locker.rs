@@ -1,6 +1,7 @@
 use crate::constants::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
+use govern::Governor;
 
 #[derive(Accounts)]
 pub struct MigrateLocker<'info> {
@@ -22,6 +23,10 @@ pub struct MigrateLocker<'info> {
     )]
     pub new_locker: Box<Account<'info, LockerV2>>,
 
+    pub governor: Box<Account<'info, Governor>>,
+    /// CHECK:
+    pub smart_wallet: UncheckedAccount<'info>,
+
     pub system_program: Program<'info, System>,
 }
 
@@ -31,7 +36,8 @@ impl<'info> MigrateLocker<'info> {
         let new_locker = &mut self.new_locker;
 
         new_locker.token_mint = old_locker.token_mint;
-        new_locker.governor = old_locker.admin;
+        new_locker.locked_supply = old_locker.locked_supply;
+        new_locker.governor = self.governor.key();
         new_locker.base = self.new_base.key();
         new_locker.bump = bump;
 

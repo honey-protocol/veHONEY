@@ -88,7 +88,8 @@ pub mod ve_honey {
     }
 
     pub fn migrate_whitelist(ctx: Context<MigrateWhitelist>) -> Result<()> {
-        ctx.accounts.process()?;
+        ctx.accounts
+            .process(unwrap_bump!(ctx, "new_whitelist_entry"))?;
         Ok(())
     }
 
