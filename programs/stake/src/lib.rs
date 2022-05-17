@@ -228,6 +228,67 @@ pub mod stake {
 
         Ok(())
     }
+
+    #[access_control(assert_claimable(ctx.accounts.pool_info.params))]
+    pub fn stake_v2<'info>(
+        ctx: Context<'_, '_, '_, 'info, Stake<'info>>,
+        amount: u64,
+        duration: i64,
+    ) -> Result<()> {
+        assert!(amount != 0);
+
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            token::Burn {
+                mint: ctx.accounts.p_token_mint.to_account_info(),
+                to: ctx.accounts.p_token_from.to_account_info(),
+                authority: ctx.accounts.user_authority.to_account_info(),
+            },
+        );
+
+        token::burn(cpi_ctx, amount)?;
+
+        let seeds = authority_seeds!(
+            pool_info = ctx.accounts.pool_info.key(),
+            bump = ctx.accounts.pool_info.bump
+        );
+        let signer: &[&[&[u8]]] = &[&seeds[..]];
+
+        let cpi_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            token::MintTo {
+                mint: ctx.accounts.token_mint.to_account_info(),
+                to: ctx.accounts.token_vault.to_account_info(),
+                authority: ctx.accounts.authority.to_account_info(),
+            },
+            signer,
+        );
+
+        let amount_to_mint = unwrap_int!(amount.checked_mul(conversion_ratio(duration)?));
+
+        token::mint_to(cpi_ctx, amount_to_mint)?;
+
+        ctx.accounts.token_vault.reload()?;
+
+        let cpi_ctx = CpiContext::new_with_signer(
+            ctx.accounts.locker_program.to_account_info(),
+            ve_honey::cpi::accounts::LockV2 {
+                locker: ctx.accounts.locker.to_account_info(),
+                escrow: ctx.accounts.escrow.to_account_info(),
+                locked_tokens: ctx.accounts.locked_tokens.to_account_info(),
+                escrow_owner: ctx.accounts.user_authority.to_account_info(),
+                source_tokens: ctx.accounts.token_vault.to_account_info(),
+                source_tokens_authority: ctx.accounts.authority.to_account_info(),
+                token_program: ctx.accounts.token_program.to_account_info(),
+            },
+            signer,
+        )
+        .with_remaining_accounts(ctx.remaining_accounts.to_vec());
+
+        ve_honey::cpi::lock_v2(cpi_ctx, amount_to_mint, duration)?;
+
+        Ok(())
+    }
 }
 
 pub fn conversion_ratio(duration: i64) -> Result<u64> {
