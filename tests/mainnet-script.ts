@@ -1,7 +1,7 @@
 const fs = require("fs");
+const assert = require("assert");
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
-import { program } from "@project-serum/anchor/dist/cjs/spl/token";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
 
 import { Stake } from "../target/types/stake";
@@ -175,6 +175,10 @@ async function getAddresses() {
   console.log("Min stake duration: ", lockerParams.minStakeDuration.toString());
   console.log("Max stake duration: ", lockerParams.maxStakeDuration.toString());
   console.log("Multiplier: ", lockerParams.multiplier);
+
+  const stakePoolAccount = await stakeProgram.account.poolInfo.fetch(stakePool);
+
+  console.log("Pool Owner: ", stakePoolAccount.owner.toString());
 }
 
 async function init_pool() {
@@ -222,6 +226,27 @@ async function init_locker() {
 //     signers: [mintAuthorityKey, ownerKey],
 //   });
 // }
+
+async function reclaim_mint_authority() {
+  const newMintAuth = new anchor.web3.PublicKey(
+    "F3enT51dxXXZLxQnrfxyMyNop2EtpAHq687EggPrxHcG"
+  );
+
+  await stakeProgram.rpc.reclaimMintAuthority(newMintAuth, {
+    accounts: {
+      owner: admin.publicKey,
+      poolInfo: stakePool,
+      tokenMint: honeyMint.publicKey,
+      authority: authority,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    },
+    signers: [admin],
+  });
+
+  const mintAuth = await honeyMint.getMintInfo();
+
+  assert.ok(mintAuth.mintAuthority.equals(newMintAuth));
+}
 
 async function set_locker_params() {
   await veHoneyProgram.rpc.setLockerParams(lockerParams, {
@@ -439,9 +464,8 @@ async function lock() {
   // await init_locker();
   // await set_mint_authority();
   // await add_whitelist();
-  await set_locker_params();
-  const lockerAccount = await veHoneyProgram.account.locker.fetch(locker);
-  console.log(lockerAccount.params.minStakeDuration.toString());
+  // await set_locker_params();
+  await reclaim_mint_authority();
 })()
   .then(() => {
     console.log("\n Done ...");
