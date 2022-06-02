@@ -225,7 +225,13 @@ async function setupGovernor() {
   console.log("subaccount: ", subaccount.toString());
   console.log("SubaccountInfo: ", subaccountInfo.toString());
 
-  const owners = [subaccount, governor];
+  const owners = [
+    subaccount,
+    governor,
+    new anchor.web3.PublicKey("8RznFuFdfJUy6cA5Tg4uFHzoyfrmqgSEmA3Qt6zs6faX"),
+    new anchor.web3.PublicKey("Exsq2WCfLQrmVTZGb9ji47xTt2KyLJ375opJZaSS8P5T"),
+    new anchor.web3.PublicKey("7bMXpuXCag8CobBKeg3MB8YkgMNwPBZeVggbgACmTfNs"),
+  ];
 
   // smartWalletProgram.rpc.setOwners()
 
@@ -247,7 +253,7 @@ async function setupGovernor() {
   try {
     await smartWalletProgram.rpc.createSmartWallet(
       smartWalletBump,
-      3,
+      5,
       owners,
       new anchor.BN(1),
       new anchor.BN(0),
@@ -268,10 +274,8 @@ async function setupGovernor() {
 
   governanceParams = {
     votingDelay: new anchor.BN(1),
-    votingPeriod: new anchor.BN(3).mul(new anchor.BN(24 * 60 * 60)),
-    quorumVotes: new anchor.BN(10_000_000_000 * 0.04).mul(
-      new anchor.BN(10 ** 6)
-    ),
+    votingPeriod: new anchor.BN(30 * 60),
+    quorumVotes: new anchor.BN(10_000 * 0.04).mul(new anchor.BN(10 ** 6)),
     timelockDelaySeconds: new anchor.BN(0),
   };
 
