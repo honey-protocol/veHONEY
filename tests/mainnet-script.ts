@@ -74,14 +74,7 @@ let stakePool: anchor.web3.PublicKey,
   locker: anchor.web3.PublicKey,
   whitelistEntry: anchor.web3.PublicKey;
 
-const myKeypair = anchor.web3.Keypair.fromSecretKey(
-  Uint8Array.from([
-    52, 7, 6, 186, 211, 66, 93, 75, 191, 226, 126, 255, 132, 154, 105, 219, 87,
-    12, 251, 66, 211, 66, 39, 170, 62, 74, 220, 169, 253, 218, 223, 211, 97,
-    243, 21, 134, 192, 125, 57, 103, 60, 250, 163, 35, 129, 68, 218, 162, 215,
-    183, 193, 109, 154, 19, 147, 247, 74, 166, 3, 180, 32, 166, 226, 188,
-  ])
-);
+const myKeypair = anchor.web3.Keypair.generate();
 
 const myPHoneyKey = new anchor.web3.PublicKey(
   "83eeEHkUUEv3N1kQSZmKdmpf4qrNbMWgLzzHbjmXqHRC"
