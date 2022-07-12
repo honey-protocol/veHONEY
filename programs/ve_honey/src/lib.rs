@@ -161,4 +161,13 @@ pub mod ve_honey {
         ctx.accounts.process(side)?;
         Ok(())
     }
+
+    // pub fn realloc_locker(
+    //     ctx: Context<ReallocLocker>,
+    //     _bump: u8,
+    //     proposal_activation_min_votes: u64,
+    // ) -> Result<()> {
+    //     ctx.accounts.process(proposal_activation_min_votes)?;
+    //     Ok(())
+    // }
 }

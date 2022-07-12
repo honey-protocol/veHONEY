@@ -63,12 +63,12 @@ pub struct LockerParamsV2 {
     pub min_stake_duration: u64,
     /// Maximum staking duration.
     pub max_stake_duration: u64,
-    /// Minimum number of votes required to activate a proposal.
-    pub proposal_activation_min_votes: u64,
     /// Whether or not the locking whitelist system is enabled.
     pub whitelist_enabled: bool,
     /// The weight of a maximum vote lock relative to the total number of tokens locked.
     pub multiplier: u8,
+    /// Minimum number of votes required to activate a proposal.
+    pub proposal_activation_min_votes: u64,
 }
 
 impl LockerParamsV2 {
