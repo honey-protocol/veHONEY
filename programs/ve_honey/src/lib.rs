@@ -136,12 +136,17 @@ pub mod ve_honey {
         Ok(())
     }
 
-    pub fn realloc_locker(
-        ctx: Context<ReallocLocker>,
-        _bump: u8,
-        proposal_activation_min_votes: u64,
+    pub fn realloc_locker(ctx: Context<ReallocLocker>, _bump: u8) -> Result<()> {
+        ctx.accounts.process()?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
+    pub fn set_params_with_admin(
+        ctx: Context<SetLockerParamsWithAdmin>,
+        params: LockerParams,
     ) -> Result<()> {
-        ctx.accounts.process(proposal_activation_min_votes)?;
+        ctx.accounts.process(params)?;
         Ok(())
     }
 }

@@ -26,58 +26,65 @@ describe("Reallocation testing", () => {
 
     console.log(program.programId.toString());
 
-    it("initializes locker account", async () => {
-        const [locker] = await anchor.web3.PublicKey.findProgramAddress(
-            [Buffer.from("Locker"), base.publicKey.toBuffer()],
-            program.programId
-        );
-
-        const lockerParams: LockerParams = {
-            whitelistEnabled: true,
-            minStakeDuration: new anchor.BN(0),
-            maxStakeDuration: new anchor.BN(10),
-            multiplier: 1,
-        };
-
-        await program.rpc.initLocker(owner.publicKey, lockerParams, {
-            accounts: {
-                payer: provider.wallet.publicKey,
-                base: base.publicKey,
-                locker,
-                tokenMint: mint,
-                systemProgram: anchor.web3.SystemProgram.programId,
-            },
-            signers: [base],
-        });
-
-        const lockers = await program.account.locker.all();
-
-        lockers.forEach((locker) => {
-            console.log("Locker address: ", locker.publicKey.toString());
-            console.log("Locker base: ", locker.account.base.toString());
-            console.log("Params: ", locker.account.params);
-        });
-    });
-
-    // it("reallocates locker account", async () => {
-    //     const [locker, lockerBump] = await anchor.web3.PublicKey.findProgramAddress(
+    // it("initializes locker account", async () => {
+    //     const [locker] = await anchor.web3.PublicKey.findProgramAddress(
     //         [Buffer.from("Locker"), base.publicKey.toBuffer()],
     //         program.programId
     //     );
 
-    //     await program.rpc.reallocLocker(lockerBump, new anchor.BN(333), {
+    //     const lockerParams: LockerParams = {
+    //         whitelistEnabled: true,
+    //         minStakeDuration: new anchor.BN(0),
+    //         maxStakeDuration: new anchor.BN(10),
+    //         multiplier: 1,
+    //     };
+
+    //     await program.rpc.initLocker(owner.publicKey, lockerParams, {
     //         accounts: {
     //             payer: provider.wallet.publicKey,
     //             base: base.publicKey,
     //             locker,
-    //             rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+    //             tokenMint: mint,
     //             systemProgram: anchor.web3.SystemProgram.programId,
     //         },
+    //         signers: [base],
     //     });
 
-    //     const lockerAcc = await program.account.lockerV2.fetch(locker);
+    //     const lockers = await program.account.locker.all();
 
-    //     console.log("Locker base: ", lockerAcc.base.toString());
-    //     console.log("Params: ", lockerAcc.params);
+    //     lockers.forEach((locker) => {
+    //         console.log("Locker address: ", locker.publicKey.toString());
+    //         console.log("Locker base: ", locker.account.base.toString());
+    //         console.log("Params: ", locker.account.params);
+    //     });
     // });
+
+    it("reallocates locker account", async () => {
+        const [locker, lockerBump] = await anchor.web3.PublicKey.findProgramAddress(
+            [Buffer.from("Locker"), base.publicKey.toBuffer()],
+            program.programId
+        );
+
+        await program.rpc.reallocLocker(lockerBump, {
+            accounts: {
+                payer: provider.wallet.publicKey,
+                admin: owner.publicKey,
+                base: base.publicKey,
+                locker,
+                rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+                systemProgram: anchor.web3.SystemProgram.programId,
+            },
+            signers: [owner],
+        });
+
+        const lockerAcc = await program.account.locker.fetch(locker);
+
+        console.log("Locker base: ", lockerAcc.base.toString());
+        console.log("Params: ", lockerAcc.params);
+        console.log("minStakeDuration: ", lockerAcc.params.minStakeDuration.toString());
+        console.log("maxStakeDuration: ", lockerAcc.params.maxStakeDuration.toString());
+        console.log("proposal: ", lockerAcc.params.proposalActivationMinVotes.toString());
+
+        console.log("Locker: ", locker.toString());
+    });
 });

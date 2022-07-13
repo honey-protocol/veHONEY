@@ -21,7 +21,7 @@ pub struct ReallocLocker<'info> {
 }
 
 impl<'info> ReallocLocker<'info> {
-    pub fn process(&mut self, proposal_activation_min_votes: u64) -> Result<()> {
+    pub fn process(&mut self) -> Result<()> {
         let old_lamports = self.locker.lamports();
         let new_lamports = self.rent.minimum_balance(8 + Locker::LEN);
 
@@ -45,25 +45,10 @@ impl<'info> ReallocLocker<'info> {
             .to_account_info()
             .realloc(8 + Locker::LEN, true)?;
 
-        let mut locker = Account::<Locker>::try_from(&self.locker.to_account_info())?;
+        let locker = Account::<Locker>::try_from(&self.locker)?;
 
         assert_keys_eq!(locker.governor, self.admin);
 
-        locker.params.proposal_activation_min_votes = proposal_activation_min_votes;
-
-        emit!(ReallocEvent {
-            base: locker.base,
-            token_mint: locker.token_mint,
-            params: locker.params
-        });
-
         Ok(())
     }
-}
-
-#[event]
-pub struct ReallocEvent {
-    base: Pubkey,
-    token_mint: Pubkey,
-    params: LockerParams,
 }
