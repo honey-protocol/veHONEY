@@ -22,6 +22,7 @@ describe("Reallocation testing", () => {
         minStakeDuration: anchor.BN;
         maxStakeDuration: anchor.BN;
         multiplier: number;
+        proposalActivationMinVotes: anchor.BN;
     }
 
     console.log(program.programId.toString());
@@ -86,5 +87,32 @@ describe("Reallocation testing", () => {
         console.log("proposal: ", lockerAcc.params.proposalActivationMinVotes.toString());
 
         console.log("Locker: ", locker.toString());
+    });
+
+    it("Set params", async () => {
+        const [locker, lockerBump] = await anchor.web3.PublicKey.findProgramAddress(
+            [Buffer.from("Locker"), base.publicKey.toBuffer()],
+            program.programId
+        );
+
+        const lockerParams: LockerParams = {
+            whitelistEnabled: true,
+            minStakeDuration: new anchor.BN(0),
+            maxStakeDuration: new anchor.BN(10),
+            multiplier: 1,
+            proposalActivationMinVotes: new anchor.BN(333),
+        };
+
+        await program.rpc.setParamsWithAdmin(lockerParams, {
+            accounts: {
+                admin: owner.publicKey,
+                locker,
+            },
+            signers: [owner],
+        });
+
+        const lockerAcc = await program.account.locker.fetch(locker);
+
+        console.log("Proposal: ", lockerAcc.params.proposalActivationMinVotes.toString());
     });
 });
