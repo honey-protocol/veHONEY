@@ -136,6 +136,12 @@ pub mod ve_honey {
         Ok(())
     }
 
+    #[access_control(ctx.accounts.validate())]
+    pub fn set_vote_delegate(ctx: Context<SetVoteDelegate>, new_delegate: Pubkey) -> Result<()> {
+        ctx.accounts.process(new_delegate)?;
+        Ok(())
+    }
+
     pub fn realloc_locker(ctx: Context<ReallocLocker>, _bump: u8) -> Result<()> {
         ctx.accounts.process()?;
         Ok(())

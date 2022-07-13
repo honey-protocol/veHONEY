@@ -12,7 +12,7 @@ pub struct SetVoteDelegate<'info> {
 }
 
 impl<'info> SetVoteDelegate<'info> {
-    pub fn set_vote_delegate(&mut self, new_delegate: Pubkey) -> Result<()> {
+    pub fn process(&mut self, new_delegate: Pubkey) -> Result<()> {
         let old_delegate = self.escrow.vote_delegate;
         self.escrow.vote_delegate = new_delegate;
 
