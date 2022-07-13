@@ -10,9 +10,9 @@ use vipers::*;
 #[derive(Accounts)]
 pub struct CastVote<'info> {
     /// The [Locker].
-    pub locker: Box<Account<'info, LockerV2>>,
+    pub locker: Box<Account<'info, Locker>>,
     /// The [Escrow] that is voting.
-    pub escrow: Box<Account<'info, EscrowV2>>,
+    pub escrow: Box<Account<'info, Escrow>>,
     /// Vote delegate of the [Escrow].
     pub vote_delegate: Signer<'info>,
 

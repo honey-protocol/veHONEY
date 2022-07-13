@@ -10,14 +10,14 @@ use vipers::*;
 #[derive(Accounts)]
 pub struct ActivateProposal<'info> {
     /// The [Locker].
-    pub locker: Box<Account<'info, LockerV2>>,
+    pub locker: Box<Account<'info, Locker>>,
     /// The [Governor].
     pub governor: Box<Account<'info, Governor>>,
     /// The [Proposal].
     #[account(mut)]
     pub proposal: Box<Account<'info, Proposal>>,
     /// The user's [Escrow].
-    pub escrow: Box<Account<'info, EscrowV2>>,
+    pub escrow: Box<Account<'info, Escrow>>,
     /// The [Escrow]'s owner.
     pub escrow_owner: Signer<'info>,
     /// The [govern] program.

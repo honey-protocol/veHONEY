@@ -9,7 +9,6 @@ pub struct InitEscrow<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     /// [Locker].
-    #[account(mut)]
     pub locker: Box<Account<'info, Locker>>,
     /// [Escrow].
     #[account(
@@ -20,6 +19,7 @@ pub struct InitEscrow<'info> {
             escrow_owner.key().as_ref(),
         ],
         bump,
+        space = 8 + Escrow::LEN,
         payer = payer
     )]
     pub escrow: Box<Account<'info, Escrow>>,
@@ -45,6 +45,7 @@ impl<'info> InitEscrow<'info> {
         escrow.amount = 0;
         escrow.escrow_started_at = 0;
         escrow.escrow_ends_at = 0;
+        escrow.vote_delegate = self.escrow_owner.key();
 
         emit!(InitEscrowEvent {
             escrow: escrow.key(),
@@ -76,65 +77,4 @@ pub struct InitEscrowEvent {
     pub locker: Pubkey,
     /// Timetamp for the event.
     pub timestamp: i64,
-}
-
-#[derive(Accounts)]
-pub struct InitEscrowV2<'info> {
-    /// Payer of the initialization.
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    /// [Locker].
-    pub locker: Box<Account<'info, LockerV2>>,
-    /// [Escrow].
-    #[account(
-        init,
-        seeds = [
-            ESCROW_SEED.as_bytes(),
-            locker.key().as_ref(),
-            escrow_owner.key().as_ref(),
-        ],
-        bump,
-        space = 8 + EscrowV2::LEN,
-        payer = payer
-    )]
-    pub escrow: Box<Account<'info, EscrowV2>>,
-    /// CHECK: Authority of the [Escrow] to be created.
-    pub escrow_owner: UncheckedAccount<'info>,
-
-    pub system_program: Program<'info, System>,
-}
-
-impl<'info> InitEscrowV2<'info> {
-    pub fn process(&mut self, bump: u8) -> Result<()> {
-        let escrow = &mut self.escrow;
-        let locker = &mut self.locker;
-
-        escrow.locker = locker.key();
-        escrow.owner = self.escrow_owner.key();
-        escrow.bump = bump;
-
-        escrow.tokens = anchor_spl::associated_token::get_associated_token_address(
-            &escrow.key(),
-            &self.locker.token_mint,
-        );
-        escrow.amount = 0;
-        escrow.escrow_started_at = 0;
-        escrow.escrow_ends_at = 0;
-        escrow.vote_delegate = self.escrow_owner.key();
-
-        emit!(InitEscrowEvent {
-            escrow: escrow.key(),
-            escrow_owner: escrow.owner,
-            locker: escrow.locker,
-            timestamp: Clock::get()?.unix_timestamp
-        });
-
-        Ok(())
-    }
-}
-
-impl<'info> Validate<'info> for InitEscrowV2<'info> {
-    fn validate(&self) -> Result<()> {
-        Ok(())
-    }
 }

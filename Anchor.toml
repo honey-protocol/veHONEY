@@ -3,12 +3,14 @@ seeds = false
 [programs.localnet]
 ve_honey = "CKQapf8pWoMddT15grV8UCPjiLCTHa12NRgkKV63Lc7q"
 stake = "4V68qajTiVHm3Pm9fQoV8D4tEYBmq3a34R9NV5TymLr7"
+[programs.devnet]
+ve_honey = "9fhPXEHaHBn5wnfxpDpeh8zUmv9kmE9yyQh1dczMxnth"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
