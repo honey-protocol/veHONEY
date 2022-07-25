@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use govern::Governor;
 use vipers::*;
 
 pub mod constants;
@@ -159,6 +160,28 @@ pub mod ve_honey {
         params: LockerParams,
     ) -> Result<()> {
         ctx.accounts.process(params)?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
+    pub fn set_admin(ctx: Context<SetAdmin>) -> Result<()> {
+        ctx.accounts.locker.governor = ctx.accounts.governor.key();
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct SetAdmin<'info> {
+    #[account(mut)]
+    pub locker: Account<'info, Locker>,
+    pub admin: Signer<'info>,
+    pub governor: Account<'info, Governor>,
+}
+
+impl<'info> Validate<'info> for SetAdmin<'info> {
+    fn validate(&self) -> Result<()> {
+        assert_keys_eq!(self.locker.governor, self.admin, "Invalid owner");
+        
         Ok(())
     }
 }

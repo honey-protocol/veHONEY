@@ -326,11 +326,28 @@ async function checkEscrows() {
   }
 }
 
+async function setAdmin() {
+  await veHoneyProgram.rpc.setAdmin({
+    accounts: {
+      locker,
+      admin: admin.publicKey,
+      governor,
+    },
+    signers: [admin]
+  });
+
+  const lockerAcc = await veHoneyProgram.account.locker.fetch(locker);
+
+  console.log("Governor in Locker: ", lockerAcc.governor.toString());
+}
+
 (async function dodo() {
   await setupGovernor();
   // await migrateLocker();
   // await migrateEscrows();
   // await checkEscrows();
+
+  await setAdmin();
 })()
   .then(() => console.log("Success!"))
   .catch((e) => console.log(e));
