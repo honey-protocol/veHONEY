@@ -17,8 +17,3 @@ pub use lock::*;
 pub use set_params::*;
 pub use set_vote_delegate::*;
 pub use whitelist::*;
-
-pub mod reallocate_escrow;
-pub mod reallocate_locker;
-pub use reallocate_escrow::*;
-pub use reallocate_locker::*;

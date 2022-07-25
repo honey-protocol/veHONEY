@@ -231,7 +231,7 @@ pub mod stake {
         )
         .with_remaining_accounts(ctx.remaining_accounts.to_vec());
 
-        ve_honey::cpi::lock_v2(cpi_ctx, amount_to_mint, duration)?;
+        ve_honey::cpi::lock(cpi_ctx, amount_to_mint, duration)?;
 
         Ok(())
     }

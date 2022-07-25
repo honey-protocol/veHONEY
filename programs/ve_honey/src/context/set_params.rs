@@ -35,31 +35,3 @@ impl<'info> Validate<'info> for SetLockerParams<'info> {
         Ok(())
     }
 }
-
-#[derive(Accounts)]
-pub struct SetLockerParamsWithAdmin<'info> {
-    pub admin: Signer<'info>,
-    /// The [Locker].
-    #[account(mut)]
-    pub locker: Box<Account<'info, Locker>>,
-}
-
-impl<'info> SetLockerParamsWithAdmin<'info> {
-    pub fn process(&mut self, params: LockerParams) -> Result<()> {
-        self.locker.params = params;
-
-        Ok(())
-    }
-}
-
-impl<'info> Validate<'info> for SetLockerParamsWithAdmin<'info> {
-    fn validate(&self) -> Result<()> {
-        assert_keys_eq!(
-            self.admin,
-            self.locker.governor,
-            ProtocolError::GovernorMismatch
-        );
-
-        Ok(())
-    }
-}
