@@ -148,6 +148,12 @@ pub mod ve_honey {
     }
 
     #[access_control(ctx.accounts.validate())]
+    pub fn realloc_escrow(ctx: Context<ReallocateEscrow>, _bump: u8) -> Result<()> {
+        ctx.accounts.process()?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
     pub fn set_params_with_admin(
         ctx: Context<SetLockerParamsWithAdmin>,
         params: LockerParams,
