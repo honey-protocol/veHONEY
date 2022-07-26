@@ -57,6 +57,13 @@ pub mod stake {
     }
 
     #[access_control(assert_initialized(&ctx.accounts.pool_info))]
+    pub fn set_owner(ctx: Context<SetOwner>, new_owner: Pubkey) -> Result<()> {
+        ctx.accounts.pool_info.owner = new_owner;
+
+        Ok(())
+    }
+
+    #[access_control(assert_initialized(&ctx.accounts.pool_info))]
     pub fn set_mint_authority(ctx: Context<SetMintAuthority>) -> Result<()> {
         let cpi_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -385,6 +392,16 @@ pub struct Initialize<'info> {
 
 #[derive(Accounts)]
 pub struct ModifyParams<'info> {
+    pub owner: Signer<'info>,
+    #[account(
+        mut,
+        has_one = owner
+    )]
+    pub pool_info: Box<Account<'info, PoolInfo>>,
+}
+
+#[derive(Accounts)]
+pub struct SetOwner<'info> {
     pub owner: Signer<'info>,
     #[account(
         mut,

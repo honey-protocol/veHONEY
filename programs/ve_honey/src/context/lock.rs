@@ -121,6 +121,10 @@ impl<'info> Validate<'info> for Lock<'info> {
         assert_keys_eq!(self.locker, self.escrow.locker);
         assert_keys_eq!(self.escrow.tokens, self.locked_tokens);
         assert_keys_eq!(self.escrow.owner, self.escrow_owner);
+        assert_keys_eq!(self.source_tokens.owner, self.source_tokens_authority);
+
+        assert_keys_eq!(self.source_tokens.mint, self.locker.token_mint);
+        assert_keys_neq!(self.source_tokens, self.locked_tokens);
 
         Ok(())
     }

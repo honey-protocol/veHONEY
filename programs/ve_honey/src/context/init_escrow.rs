@@ -9,7 +9,6 @@ pub struct InitEscrow<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     /// [Locker].
-    #[account(mut)]
     pub locker: Box<Account<'info, Locker>>,
     /// [Escrow].
     #[account(
@@ -20,6 +19,7 @@ pub struct InitEscrow<'info> {
             escrow_owner.key().as_ref(),
         ],
         bump,
+        space = 8 + Escrow::LEN,
         payer = payer
     )]
     pub escrow: Box<Account<'info, Escrow>>,
@@ -45,6 +45,7 @@ impl<'info> InitEscrow<'info> {
         escrow.amount = 0;
         escrow.escrow_started_at = 0;
         escrow.escrow_ends_at = 0;
+        escrow.vote_delegate = self.escrow_owner.key();
 
         emit!(InitEscrowEvent {
             escrow: escrow.key(),

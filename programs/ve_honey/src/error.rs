@@ -27,4 +27,12 @@ pub enum ProtocolError {
     EscrowInUse,
     #[msg("The escrow doesn't have balance")]
     EscrowNoBalance,
+    #[msg("The proposal must be active")]
+    ProposalMustBeActive,
+    #[msg("Governor mismatch")]
+    GovernorMismatch,
+    #[msg("Program id must be executable")]
+    ProgramIdMustBeExecutable,
+    #[msg("Insufficient voting power to activate a proposal")]
+    InsufficientVotingPower,
 }

@@ -1,6 +1,6 @@
 [features]
 seeds = false
-[programs.devnet]
+[programs.mainnet]
 ve_honey = "CKQapf8pWoMddT15grV8UCPjiLCTHa12NRgkKV63Lc7q"
 stake = "4V68qajTiVHm3Pm9fQoV8D4tEYBmq3a34R9NV5TymLr7"
 
@@ -8,8 +8,8 @@ stake = "4V68qajTiVHm3Pm9fQoV8D4tEYBmq3a34R9NV5TymLr7"
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "devnet"
+cluster = "mainnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/veHoney.ts"
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/*.ts"

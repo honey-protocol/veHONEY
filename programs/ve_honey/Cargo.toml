@@ -18,5 +18,6 @@ default = []
 [dependencies]
 anchor-lang = "0.22.1"
 anchor-spl = "0.22.1"
+govern = { version = "^0.5", features = ["cpi"] }
 num-traits = "0.2"
 vipers = "^2.0"

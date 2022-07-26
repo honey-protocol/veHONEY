@@ -1,5 +1,5 @@
-use crate::state::Locker;
-use anchor_lang::prelude::*;
+use crate::state::*;
+use anchor_lang::{prelude::*, solana_program::pubkey::PUBKEY_BYTES};
 use vipers::*;
 
 #[account]
@@ -20,9 +20,16 @@ pub struct Escrow {
     pub escrow_started_at: i64,
     /// When the escrow unlocks; i.e. the [Escrow::owner] is scheduled to be allowed to withdraw their tokens.
     pub escrow_ends_at: i64,
+
+    /// Account that is authorized to vote on behalf of this [Escrow].
+    /// Defaults to the [Escrow::owner].
+    pub vote_delegate: Pubkey,
 }
 
 impl Escrow {
+    pub const LEN: usize =
+        PUBKEY_BYTES + PUBKEY_BYTES + 1 + PUBKEY_BYTES + 8 + 8 + 8 + PUBKEY_BYTES;
+
     pub fn update_lock_event(
         &mut self,
         locker: &mut Locker,
@@ -37,5 +44,16 @@ impl Escrow {
         locker.locked_supply = unwrap_int!(locker.locked_supply.checked_add(lock_amount));
 
         Ok(())
+    }
+
+    pub fn voting_power_at_time(&self, locker: &LockerParams, timestamp: i64) -> Option<u64> {
+        locker.calculate_voter_power(self, timestamp)
+    }
+
+    pub fn voting_power(&self, locker: &LockerParams) -> Result<u64> {
+        Ok(unwrap_int!(self.voting_power_at_time(
+            locker,
+            Clock::get()?.unix_timestamp
+        )))
     }
 }

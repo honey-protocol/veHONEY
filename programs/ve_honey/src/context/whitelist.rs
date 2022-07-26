@@ -2,6 +2,7 @@ use crate::constants::*;
 use crate::error::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
+use govern::Governor;
 use vipers::*;
 
 #[derive(Accounts)]
@@ -10,12 +11,8 @@ pub struct ApproveProgramLockPrivilege<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     /// [Locker].
-    #[account(
-        constraint = locker.admin == locker_admin.key() @ ProtocolError::InvalidLockerAdmin
-    )]
+    #[account(has_one = governor)]
     pub locker: Box<Account<'info, Locker>>,
-    /// Admin of the [Locker].
-    pub locker_admin: Signer<'info>,
     /// [WhitelistEntry].
     #[account(
         init,
@@ -26,9 +23,14 @@ pub struct ApproveProgramLockPrivilege<'info> {
             whitelisted_owner.key().as_ref()
         ],
         bump,
+        space = 8 + WhitelistEntry::LEN,
         payer = payer
     )]
     pub whitelist_entry: Box<Account<'info, WhitelistEntry>>,
+    /// Governor of the [Locker].
+    pub governor: Box<Account<'info, Governor>>,
+    /// Smart wallet on the [Governor].
+    pub smart_wallet: Signer<'info>,
 
     /// CHECK: ProgramId of the program to whitelist.
     pub executable_id: UncheckedAccount<'info>,
@@ -61,9 +63,10 @@ impl<'info> ApproveProgramLockPrivilege<'info> {
 
 impl<'info> Validate<'info> for ApproveProgramLockPrivilege<'info> {
     fn validate(&self) -> Result<()> {
+        assert_keys_eq!(self.governor.smart_wallet, self.smart_wallet);
         invariant!(
             self.executable_id.executable,
-            "program_id must be an executable"
+            ProtocolError::ProgramIdMustBeExecutable
         );
 
         Ok(())
@@ -76,18 +79,15 @@ pub struct RevokeProgramLockPrivilege<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     /// [Locker].
-    #[account(
-        constraint = locker.admin == locker_admin.key() @ ProtocolError::InvalidLockerAdmin
-    )]
+    #[account(has_one = governor)]
     pub locker: Box<Account<'info, Locker>>,
-    /// Admin of the [Locker].
-    pub locker_admin: Signer<'info>,
     /// [WhitelistEntry].
-    #[account(mut, close = payer)]
+    #[account(mut, has_one = locker, close = payer)]
     pub whitelist_entry: Box<Account<'info, WhitelistEntry>>,
-
-    /// CHECK: ProgramId of the program to whitelist.
-    pub executable_id: UncheckedAccount<'info>,
+    /// Governor of the [Locker].
+    pub governor: Box<Account<'info, Governor>>,
+    /// Smart wallet on the [Governor].
+    pub smart_wallet: Signer<'info>,
 }
 
 impl<'info> RevokeProgramLockPrivilege<'info> {
@@ -104,7 +104,7 @@ impl<'info> RevokeProgramLockPrivilege<'info> {
 
 impl<'info> Validate<'info> for RevokeProgramLockPrivilege<'info> {
     fn validate(&self) -> Result<()> {
-        assert_keys_eq!(self.whitelist_entry.program_id, self.executable_id);
+        assert_keys_eq!(self.governor.smart_wallet, self.smart_wallet);
 
         Ok(())
     }

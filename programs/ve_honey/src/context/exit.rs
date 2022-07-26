@@ -15,7 +15,7 @@ pub struct Exit<'info> {
     #[account(mut)]
     pub locker: Box<Account<'info, Locker>>,
     /// [Escrow] that is being closed.
-    #[account(mut, close = payer)]
+    #[account(mut, has_one = locker, close = payer)]
     pub escrow: Box<Account<'info, Escrow>>,
     /// Authority of the [Escrow].
     pub escrow_owner: Signer<'info>,
@@ -79,6 +79,8 @@ impl<'info> Validate<'info> for Exit<'info> {
             self.escrow.escrow_ends_at < now,
             ProtocolError::EscrowNotEnded
         );
+
+        assert_keys_neq!(self.locked_tokens, self.destination_tokens);
 
         Ok(())
     }

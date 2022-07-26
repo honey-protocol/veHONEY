@@ -2,11 +2,12 @@ use crate::constants::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token::Mint;
+use govern::Governor;
 use vipers::*;
 
 #[derive(Accounts)]
 pub struct InitLocker<'info> {
-    /// Payer of the initialization.
+    /// Payer of initialization.
     #[account(mut)]
     pub payer: Signer<'info>,
     /// Base.
@@ -16,31 +17,33 @@ pub struct InitLocker<'info> {
         init,
         seeds = [LOCKER_SEED.as_bytes(), base.key().as_ref()],
         bump,
+        space = 8 + Locker::LEN,
         payer = payer
     )]
     pub locker: Box<Account<'info, Locker>>,
     /// Mint of the token that can be used to join the [Locker].
     pub token_mint: Box<Account<'info, Mint>>,
+    /// [Governor] associated with the [Locker].
+    pub governor: Box<Account<'info, Governor>>,
 
     /// System program.
     pub system_program: Program<'info, System>,
 }
 
 impl<'info> InitLocker<'info> {
-    pub fn process(&mut self, bump: u8, admin: Pubkey, params: LockerParams) -> Result<()> {
+    pub fn process(&mut self, bump: u8, params: LockerParams) -> Result<()> {
         let locker = &mut self.locker;
-
         locker.token_mint = self.token_mint.key();
+        locker.governor = self.governor.key();
         locker.base = self.base.key();
         locker.bump = bump;
-        locker.admin = admin;
         locker.params = params;
 
         emit!(InitLockerEvent {
             locker: locker.key(),
             token_mint: locker.token_mint,
-            admin,
-            params
+            governor: locker.governor,
+            params,
         });
 
         Ok(())
@@ -61,8 +64,8 @@ pub struct InitLockerEvent {
     pub locker: Pubkey,
     /// Mint of the token that can be used to join the [Locker].
     pub token_mint: Pubkey,
-    /// Admin of the [Locker].
-    pub admin: Pubkey,
+    /// The governor of the [Locker].
+    pub governor: Pubkey,
     /// [LockerParams].
     pub params: LockerParams,
 }
