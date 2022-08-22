@@ -9,6 +9,7 @@ pub mod lock_nft;
 pub mod set_params;
 pub mod set_vote_delegate;
 pub mod whitelist;
+pub mod proof;
 
 pub use activate_proposal::*;
 pub use cast_vote::*;
@@ -21,3 +22,4 @@ pub use lock_nft::*;
 pub use set_params::*;
 pub use set_vote_delegate::*;
 pub use whitelist::*;
+pub use proof::*;

@@ -53,6 +53,18 @@ pub mod ve_honey {
     }
 
     #[access_control(ctx.accounts.validate())]
+    pub fn add_proof(ctx: Context<AddProof>, proof_type: u8) -> Result<()> {
+        ctx.accounts.process(proof_type)?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
+    pub fn remove_proof(ctx: Context<RemoveProof>) -> Result<()> {
+        ctx.accounts.process()?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
     pub fn lock<'info>(
         ctx: Context<'_, '_, '_, 'info, Lock<'info>>,
         amount: u64,

@@ -7,6 +7,8 @@ pub enum ProtocolError {
     EscrowNotEnded,
     #[msg("Invalid locker admin")]
     InvalidLockerAdmin,
+    #[msg("Invalid locker")]
+    InvalidLocker,
     #[msg("Lockup duration must at least be the min stake duration.")]
     LockupDurationTooShort,
     #[msg("Lockup duration must at most be the max stake duration.")]
@@ -31,10 +33,16 @@ pub enum ProtocolError {
     ProposalMustBeActive,
     #[msg("Governor mismatch")]
     GovernorMismatch,
+    #[msg("Smart wallet on governor mismatch")]
+    SmartWalletMismatch,
     #[msg("Program id must be executable")]
     ProgramIdMustBeExecutable,
     #[msg("Insufficient voting power to activate a proposal")]
     InsufficientVotingPower,
     #[msg("Invalid locker token mint")]
     InvalidLockerMint,
+    #[msg("Invariant violated")]
+    InvariantViolated,
+    #[msg("Invalid proof type")]
+    InvalidProofType,
 }
