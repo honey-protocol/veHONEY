@@ -35,4 +35,6 @@ pub enum ProtocolError {
     ProgramIdMustBeExecutable,
     #[msg("Insufficient voting power to activate a proposal")]
     InsufficientVotingPower,
+    #[msg("Invalid locker token mint")]
+    InvalidLockerMint,
 }

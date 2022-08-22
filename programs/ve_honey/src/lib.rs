@@ -29,23 +29,25 @@ pub mod ve_honey {
     }
 
     #[access_control(ctx.accounts.validate())]
+    pub fn init_treasury(ctx: Context<InitTreasury>) -> Result<()> {
+        ctx.accounts.process()?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
     pub fn set_locker_params(ctx: Context<SetLockerParams>, params: LockerParams) -> Result<()> {
         ctx.accounts.process(params)?;
         Ok(())
     }
 
     #[access_control(ctx.accounts.validate())]
-    pub fn approve_program_lock_privilege(
-        ctx: Context<ApproveProgramLockPrivilege>,
-    ) -> Result<()> {
+    pub fn approve_program_lock_privilege(ctx: Context<ApproveProgramLockPrivilege>) -> Result<()> {
         ctx.accounts.process(unwrap_bump!(ctx, "whitelist_entry"))?;
         Ok(())
     }
 
     #[access_control(ctx.accounts.validate())]
-    pub fn revoke_program_lock_privilege(
-        ctx: Context<RevokeProgramLockPrivilege>,
-    ) -> Result<()> {
+    pub fn revoke_program_lock_privilege(ctx: Context<RevokeProgramLockPrivilege>) -> Result<()> {
         ctx.accounts.process()?;
         Ok(())
     }
