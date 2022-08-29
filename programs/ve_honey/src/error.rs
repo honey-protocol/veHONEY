@@ -45,4 +45,16 @@ pub enum ProtocolError {
     InvariantViolated,
     #[msg("Invalid proof type")]
     InvalidProofType,
+    #[msg("Invalid NFT proof")]
+    InvalidProof,
+    #[msg("No proof provided")]
+    NoProofProvided,
+    #[msg("Invalid token owner")]
+    InvalidTokenOwner,
+    #[msg("Invalid associated token account")]
+    InvalidAssociatedTokenAccount,
+    #[msg("NFT vesting duration exceeded")]
+    VestingDurationExceeded,
+    #[msg("Invalid remaining accounts len")]
+    InvalidRemainingAccountsLength,
 }

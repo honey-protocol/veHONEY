@@ -15,7 +15,7 @@ pub struct Exit<'info> {
     #[account(mut)]
     pub locker: Box<Account<'info, Locker>>,
     /// [Escrow] that is being closed.
-    #[account(mut, has_one = locker, close = payer)]
+    #[account(mut, has_one = locker)]
     pub escrow: Box<Account<'info, Escrow>>,
     /// Authority of the [Escrow].
     pub escrow_owner: Signer<'info>,

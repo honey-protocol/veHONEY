@@ -66,7 +66,13 @@ impl<'info> Lock<'info> {
         let locker = &mut self.locker;
         let escrow = &mut self.escrow;
 
-        escrow.update_lock_event(locker, amount, next_escrow_started_at, next_escrow_ends_at)?;
+        escrow.update_lock_event(
+            locker,
+            amount,
+            next_escrow_started_at,
+            next_escrow_ends_at,
+            false,
+        )?;
 
         emit!(LockEvent {
             locker: locker.key(),

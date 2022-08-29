@@ -20,6 +20,8 @@ pub struct Escrow {
     pub escrow_started_at: i64,
     /// When the escrow unlocks; i.e. the [Escrow::owner] is scheduled to be allowed to withdraw their tokens.
     pub escrow_ends_at: i64,
+    /// Count of receipts for NFTs burnt
+    pub receipt_count: u64,
 
     /// Account that is authorized to vote on behalf of this [Escrow].
     /// Defaults to the [Escrow::owner].
@@ -28,7 +30,7 @@ pub struct Escrow {
 
 impl Escrow {
     pub const LEN: usize =
-        PUBKEY_BYTES + PUBKEY_BYTES + 1 + PUBKEY_BYTES + 8 + 8 + 8 + PUBKEY_BYTES;
+        PUBKEY_BYTES + PUBKEY_BYTES + 1 + PUBKEY_BYTES + 8 + 8 + 8 + 8 + PUBKEY_BYTES;
 
     pub fn update_lock_event(
         &mut self,
@@ -36,10 +38,15 @@ impl Escrow {
         lock_amount: u64,
         next_escrow_started_at: i64,
         next_escrow_ends_at: i64,
+        receipt: bool,
     ) -> Result<()> {
         self.amount = unwrap_int!(self.amount.checked_add(lock_amount));
         self.escrow_started_at = next_escrow_started_at;
         self.escrow_ends_at = next_escrow_ends_at;
+
+        if receipt {
+            self.receipt_count = self.receipt_count + 1;
+        }
 
         locker.locked_supply = unwrap_int!(locker.locked_supply.checked_add(lock_amount));
 
