@@ -55,6 +55,8 @@ impl NftReceipt {
 
         let claimable_amount = unwrap_int!(amount_to_be_claimed.checked_sub(self.claimed_amount));
 
+        invariant!(claimable_amount > 0, ProtocolError::NotClaimable);
+
         self.claimed_amount = amount_to_be_claimed;
 
         Ok(claimable_amount)
