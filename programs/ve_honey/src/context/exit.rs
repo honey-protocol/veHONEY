@@ -31,10 +31,12 @@ pub struct Exit<'info> {
 }
 
 impl<'info> Exit<'info> {
-    pub fn process(&mut self) -> Result<()> {
+    pub fn process(&mut self, ra: &[AccountInfo]) -> Result<()> {
+        let unlock_amount = self.check_receipts(ra)?;
+
         let seeds: &[&[&[u8]]] = escrow_seeds!(self.escrow);
 
-        if self.escrow.amount > 0 {
+        if unlock_amount > 0 {
             token::transfer(
                 CpiContext::new(
                     self.token_program.to_account_info(),
@@ -45,11 +47,13 @@ impl<'info> Exit<'info> {
                     },
                 )
                 .with_signer(seeds),
-                self.escrow.amount,
+                unlock_amount,
             )?;
         }
 
+        let escrow = &mut self.escrow;
         let locker = &mut self.locker;
+        escrow.amount = unwrap_int!(escrow.amount.checked_sub(unlock_amount));
         locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(self.escrow.amount));
 
         emit!(ExitEscrowEvent {
@@ -61,6 +65,37 @@ impl<'info> Exit<'info> {
         });
 
         Ok(())
+    }
+
+    // check receipts and return the amount to unlock.
+    fn check_receipts(&self, ra: &[AccountInfo]) -> Result<u64> {
+        let receipt_count = self.escrow.receipt_count;
+
+        invariant!(
+            receipt_count as usize == ra.len(),
+            ProtocolError::InvalidRemainingAccountsLength
+        );
+
+        let mut remaining_rewards_amount: u64 = 0;
+        let accounts_iter = &mut ra.iter();
+        for _ in 0..receipt_count {
+            let receipt_info = next_account_info(accounts_iter)?;
+            let receipt = Account::<NftReceipt>::try_from(receipt_info)?;
+            assert_keys_eq!(
+                receipt.owner,
+                self.escrow_owner,
+                ProtocolError::InvalidAccountOwner
+            );
+            assert_keys_eq!(receipt.locker, self.locker, ProtocolError::InvalidLocker);
+            let remaining_amount = receipt.remaining_amount()?;
+            remaining_rewards_amount =
+                unwrap_int!(remaining_rewards_amount.checked_add(remaining_amount));
+        }
+
+        Ok(unwrap_int!(self
+            .escrow
+            .amount
+            .checked_sub(remaining_rewards_amount)))
     }
 }
 

@@ -79,4 +79,9 @@ impl NftReceipt {
 
         Ok(amount)
     }
+
+    pub fn remaining_amount(&mut self) -> Result<u64> {
+        let total_claim = self.claimable_amount(self.vest_ends_at)?;
+        Ok(unwrap_int!(total_claim.checked_sub(self.claimed_amount)))
+    }
 }

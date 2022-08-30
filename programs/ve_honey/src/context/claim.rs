@@ -85,6 +85,7 @@ impl<'info> Validate<'info> for Claim<'info> {
         );
         assert_keys_eq!(self.escrow.tokens, self.locked_tokens);
         assert_keys_neq!(self.locked_tokens, self.destination_tokens);
+        invariant!(self.escrow.receipt_count > 0);
 
         Ok(())
     }
