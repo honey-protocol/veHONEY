@@ -37,6 +37,8 @@ pub enum ProtocolError {
     SmartWalletMismatch,
     #[msg("Program id must be executable")]
     ProgramIdMustBeExecutable,
+    #[msg("Invalid account owner")]
+    InvalidAccountOwner,
     #[msg("Insufficient voting power to activate a proposal")]
     InsufficientVotingPower,
     #[msg("Invalid locker token mint")]
@@ -57,4 +59,6 @@ pub enum ProtocolError {
     VestingDurationExceeded,
     #[msg("Invalid remaining accounts len")]
     InvalidRemainingAccountsLength,
+    #[msg("Not claimable")]
+    NotClaimable,
 }
