@@ -96,6 +96,12 @@ pub mod ve_honey {
     }
 
     #[access_control(ctx.accounts.validate())]
+    pub fn close_escrow(ctx: Context<CloseEscrow>) -> Result<()> {
+        ctx.accounts.process(ctx.remaining_accounts)?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
     pub fn activate_proposal(ctx: Context<ActivateProposal>) -> Result<()> {
         ctx.accounts.process()?;
         Ok(())

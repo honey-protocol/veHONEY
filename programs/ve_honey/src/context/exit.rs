@@ -54,7 +54,7 @@ impl<'info> Exit<'info> {
         let escrow = &mut self.escrow;
         let locker = &mut self.locker;
         escrow.amount = unwrap_int!(escrow.amount.checked_sub(unlock_amount));
-        locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(self.escrow.amount));
+        locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(unlock_amount));
 
         emit!(ExitEscrowEvent {
             escrow_owner: self.escrow.owner,
@@ -73,11 +73,12 @@ impl<'info> Exit<'info> {
 
         invariant!(
             receipt_count as usize == ra.len(),
-            ProtocolError::InvalidRemainingAccountsLength
+            ProtocolError::InvalidRemainingAccounts
         );
 
         let mut remaining_rewards_amount: u64 = 0;
         let accounts_iter = &mut ra.iter();
+        let mut receipt_ids: Vec<u64> = vec![];
         for _ in 0..receipt_count {
             let receipt_info = next_account_info(accounts_iter)?;
             let receipt = Account::<NftReceipt>::try_from(receipt_info)?;
@@ -87,6 +88,8 @@ impl<'info> Exit<'info> {
                 ProtocolError::InvalidAccountOwner
             );
             assert_keys_eq!(receipt.locker, self.locker, ProtocolError::InvalidLocker);
+            invariant!(!receipt_ids.contains(&receipt.receipt_id));
+            receipt_ids.push(receipt.receipt_id);
             let remaining_amount = receipt.remaining_amount()?;
             remaining_rewards_amount =
                 unwrap_int!(remaining_rewards_amount.checked_add(remaining_amount));

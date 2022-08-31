@@ -57,8 +57,8 @@ pub enum ProtocolError {
     InvalidAssociatedTokenAccount,
     #[msg("NFT vesting duration exceeded")]
     VestingDurationExceeded,
-    #[msg("Invalid remaining accounts len")]
-    InvalidRemainingAccountsLength,
+    #[msg("Invalid remaining accounts")]
+    InvalidRemainingAccounts,
     #[msg("Not claimable")]
     NotClaimable,
 }

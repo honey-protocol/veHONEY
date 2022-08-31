@@ -159,7 +159,7 @@ fn assert_valid_proof(
 
 fn check_accounts(ctx: &Context<LockNft>) -> Result<()> {
     if ctx.remaining_accounts.len() < 6 {
-        return Err(error!(ProtocolError::InvalidRemainingAccountsLength));
+        return Err(error!(ProtocolError::InvalidRemainingAccounts));
     }
 
     let accounts_iter = &mut ctx.remaining_accounts.iter();

@@ -1,6 +1,7 @@
 pub mod activate_proposal;
 pub mod cast_vote;
 pub mod claim;
+pub mod close_escrow;
 pub mod exit;
 pub mod init_escrow;
 pub mod init_locker;
@@ -15,6 +16,7 @@ pub mod proof;
 pub use activate_proposal::*;
 pub use cast_vote::*;
 pub use claim::*;
+pub use close_escrow::*;
 pub use exit::*;
 pub use init_escrow::*;
 pub use init_locker::*;
