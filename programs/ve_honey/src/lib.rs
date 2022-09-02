@@ -78,7 +78,11 @@ pub mod ve_honey {
     }
 
     #[access_control(ctx.accounts.validate())]
-    pub fn lock_nft(ctx: Context<LockNft>, receipt_id: u64, duration: i64) -> Result<()> {
+    pub fn lock_nft<'info>(
+        ctx: Context<'_, '_, '_, 'info, LockNft<'info>>,
+        receipt_id: u64,
+        duration: i64,
+    ) -> Result<()> {
         lock_nft::handler(ctx, receipt_id, duration)?;
         Ok(())
     }
@@ -96,7 +100,7 @@ pub mod ve_honey {
     }
 
     #[access_control(ctx.accounts.validate())]
-    pub fn close_escrow(ctx: Context<CloseEscrow>) -> Result<()> {
+    pub fn close_escrow<'info>(ctx: Context<'_, '_, '_, 'info, CloseEscrow<'info>>) -> Result<()> {
         ctx.accounts.process(ctx.remaining_accounts)?;
         Ok(())
     }

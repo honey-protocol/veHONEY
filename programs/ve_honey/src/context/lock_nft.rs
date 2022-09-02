@@ -202,7 +202,7 @@ fn check_accounts(ctx: &Context<LockNft>) -> Result<()> {
     Err(error!(ProtocolError::InvalidProof))
 }
 
-fn burn_nft(ctx: &Context<LockNft>) -> Result<()> {
+fn burn_nft<'info>(ctx: &Context<'_, '_, '_, 'info, LockNft<'info>>) -> Result<()> {
     let accounts_iter = &mut ctx.remaining_accounts.iter();
     let nft_metadata = next_account_info(accounts_iter)?;
     let nft_mint = next_account_info(accounts_iter)?;
@@ -236,7 +236,11 @@ fn burn_nft(ctx: &Context<LockNft>) -> Result<()> {
     Ok(())
 }
 
-pub fn handler(ctx: Context<LockNft>, receipt_id: u64, duration: i64) -> Result<()> {
+pub fn handler<'info>(
+    ctx: Context<'_, '_, '_, 'info, LockNft<'info>>,
+    receipt_id: u64,
+    duration: i64,
+) -> Result<()> {
     check_accounts(&ctx)?;
 
     ctx.accounts.process(receipt_id, duration)?;

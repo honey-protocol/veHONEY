@@ -53,7 +53,8 @@ impl<'info> Claim<'info> {
                     to: self.destination_tokens.to_account_info(),
                     authority: self.escrow.to_account_info(),
                 },
-            ),
+            )
+            .with_signer(seeds),
             claimable_amount,
         )?;
 

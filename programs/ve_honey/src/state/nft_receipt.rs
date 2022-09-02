@@ -62,7 +62,7 @@ impl NftReceipt {
         Ok(claimable_amount)
     }
 
-    pub fn claimable_amount(&mut self, due: i64) -> Result<u64> {
+    pub fn claimable_amount(&self, due: i64) -> Result<u64> {
         let mut duration = unwrap_int!(due.checked_sub(self.vest_started_at));
         let mut amount: u64 = 0;
         let mut year: u8 = 0;
@@ -80,7 +80,7 @@ impl NftReceipt {
         Ok(amount)
     }
 
-    pub fn remaining_amount(&mut self) -> Result<u64> {
+    pub fn remaining_amount(&self) -> Result<u64> {
         let total_claim = self.claimable_amount(self.vest_ends_at)?;
         Ok(unwrap_int!(total_claim.checked_sub(self.claimed_amount)))
     }
