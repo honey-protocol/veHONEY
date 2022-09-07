@@ -3,7 +3,12 @@ solana_version = "1.9.12"
 
 [features]
 seeds = false
+
 [programs.mainnet]
+ve_honey = "CKQapf8pWoMddT15grV8UCPjiLCTHa12NRgkKV63Lc7q"
+stake = "4V68qajTiVHm3Pm9fQoV8D4tEYBmq3a34R9NV5TymLr7"
+
+[programs.devnet]
 ve_honey = "CKQapf8pWoMddT15grV8UCPjiLCTHa12NRgkKV63Lc7q"
 stake = "4V68qajTiVHm3Pm9fQoV8D4tEYBmq3a34R9NV5TymLr7"
 
@@ -11,8 +16,20 @@ stake = "4V68qajTiVHm3Pm9fQoV8D4tEYBmq3a34R9NV5TymLr7"
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "mainnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/*.ts"
+
+[[test.genesis]]
+address = "GokivDYuQXPZCWRkwMhdH2h91KpDQXBEmpgBgs55bnpH"
+program = "./artifacts/deploy/smart_wallet.so"
+
+[[test.genesis]]
+address = "Govz1VyoyLD5BL6CSCxUJLVLsQHRwjfFj1prNsdNg5Jw"
+program = "./artifacts/deploy/govern.so"
+
+[[test.genesis]]
+address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+program = "./artifacts/deploy/metaplex_token_metadata.so"
