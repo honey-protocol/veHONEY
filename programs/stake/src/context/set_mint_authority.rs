@@ -4,7 +4,10 @@ use anchor_spl::token::{self, Mint, SetAuthority, Token};
 #[derive(Accounts)]
 pub struct SetMintAuthority<'info> {
     pub owner: Signer<'info>,
-    #[account(has_one = token_mint, has_one = owner)]
+    #[account(
+        has_one = token_mint @ ProtocolError::InvalidMint,
+        has_one = owner @ ProtocolError::InvalidOwner,
+    )]
     pub pool_info: Box<Account<'info, PoolInfo>>,
     #[account(mut)]
     pub token_mint: Box<Account<'info, Mint>>,
@@ -32,6 +35,7 @@ impl<'info> Validate<'info> for SetMintAuthority<'info> {
         assert_keys_eq!(
             self.token_mint.mint_authority.unwrap(),
             self.origin_authority,
+            ProtocolError::VarientViolated
         );
 
         Ok(())

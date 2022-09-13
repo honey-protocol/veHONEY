@@ -1,6 +1,6 @@
 import * as anchor from "@project-serum/anchor";
 import { AnchorProvider, Program } from "@project-serum/anchor";
-import { PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 import { Stake } from "../../target/types/stake";
@@ -69,6 +69,121 @@ export class MockStakePool {
       .transaction();
   }
 
+  private async createModifyParamsTx(
+    params: StakePoolParams,
+    owner?: PublicKey
+  ) {
+    return await this.program.methods
+      .modifyParams(params)
+      .accounts({
+        owner: owner ?? this.owner.publicKey,
+        poolInfo: this.address,
+      })
+      .transaction();
+  }
+
+  private async createSetOwnerTx(newOwner: PublicKey, owner?: PublicKey) {
+    return await this.program.methods
+      .setOwner(newOwner)
+      .accounts({
+        owner: owner ?? this.owner.publicKey,
+        poolInfo: this.address,
+      })
+      .transaction();
+  }
+
+  private async createSetMintAuthorityTx(
+    mintAuthority?: PublicKey,
+    owner?: PublicKey
+  ) {
+    return await this.program.methods
+      .setMintAuthority()
+      .accounts({
+        owner: owner ?? this.owner.publicKey,
+        poolInfo: this.address,
+        tokenMint: this.tokenMint.address,
+        authority: (await this.getVaultAuthority())[0],
+        originAuthority: mintAuthority ?? this.tokenMint.payer.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .transaction();
+  }
+
+  private async createReclaimMintAuthorityTx(
+    mintAuthority: PublicKey,
+    owner?: PublicKey
+  ) {
+    return await this.program.methods
+      .reclaimMintAuthority(mintAuthority)
+      .accounts({
+        owner: owner ?? this.owner.publicKey,
+        poolInfo: this.address,
+        tokenMint: this.tokenMint.address,
+        authority: (await this.getVaultAuthority())[0],
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .transaction();
+  }
+
+  public async modifyParams(args: ModifyParamsArgs) {
+    const tx = await this.createModifyParamsTx(
+      args.params,
+      args.owner?.publicKey
+    );
+    const sig = await this.provider.sendAndConfirm(
+      tx,
+      [args.owner?.payer ?? this.owner.payer],
+      { skipPreflight: true }
+    );
+    this.params = args.params;
+    return sig;
+  }
+
+  public async setOwner(args: SetOwnerArgs) {
+    const tx = await this.createSetOwnerTx(
+      args.newOwner.publicKey,
+      args.owner?.publicKey
+    );
+    const sig = await this.provider.sendAndConfirm(
+      tx,
+      [args.owner?.payer ?? this.owner.payer],
+      {
+        skipPreflight: true,
+      }
+    );
+    this.owner = args.newOwner;
+    return sig;
+  }
+
+  public async setMintAuthority(args?: SetMintAuthorityArgs) {
+    const tx = await this.createSetMintAuthorityTx(
+      args?.mintAuthority?.publicKey,
+      args?.owner?.publicKey
+    );
+    return await this.provider.sendAndConfirm(
+      tx,
+      [
+        args?.owner?.payer ?? this.owner.payer,
+        args?.mintAuthority?.payer ?? this.tokenMint.payer,
+      ],
+      {
+        skipPreflight: true,
+      }
+    );
+  }
+
+  public async reclaimMintAuthority(args: ReclaimMintAuthorityArgs) {
+    const tx = await this.createReclaimMintAuthorityTx(
+      args.mintAuthority,
+      args.owner?.publicKey
+    );
+    return await this.provider.sendAndConfirm(
+      tx,
+      [args.owner?.payer ?? this.owner.payer],
+      { skipPreflight: true }
+    );
+  }
+
   public static async create(args: MockStakePoolArgs) {
     const newStakePool = new MockStakePool(args);
     await newStakePool.init();
@@ -126,4 +241,24 @@ export type MockStakePoolArgs = {
   tokenMint: MockMint;
   owner: MockWallet;
   params: StakePoolParams;
+};
+
+export type ModifyParamsArgs = {
+  params: StakePoolParams;
+  owner?: MockWallet;
+};
+
+export type SetOwnerArgs = {
+  newOwner: MockWallet;
+  owner?: MockWallet;
+};
+
+export type SetMintAuthorityArgs = {
+  mintAuthority?: MockWallet;
+  owner?: MockWallet;
+};
+
+export type ReclaimMintAuthorityArgs = {
+  mintAuthority: PublicKey;
+  owner?: MockWallet;
 };

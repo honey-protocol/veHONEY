@@ -4,7 +4,10 @@ use anchor_spl::token::{self, Mint, Token};
 #[derive(Accounts)]
 pub struct ReclaimMintAuthority<'info> {
     pub owner: Signer<'info>,
-    #[account(has_one = token_mint, has_one = owner)]
+    #[account(
+        has_one = owner @ ProtocolError::InvalidOwner,
+        has_one = token_mint @ ProtocolError::InvalidMint,
+    )]
     pub pool_info: Box<Account<'info, PoolInfo>>,
     #[account(mut)]
     pub token_mint: Box<Account<'info, Mint>>,

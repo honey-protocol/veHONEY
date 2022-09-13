@@ -13,6 +13,13 @@ export type CheckStakePoolArgs = {
   params: StakePoolParams;
 };
 
+export type CheckMintArgs = {
+  account: any;
+  address: PublicKey;
+  decimals: number;
+  mintAuthority: PublicKey | null;
+};
+
 export function checkStakePool({
   poolInfo,
   version,
@@ -36,6 +43,17 @@ export function checkStakePool({
     params.maxClaimCount,
     "params.maxClaimCount"
   );
+}
+
+export function checkMint({
+  account,
+  address,
+  decimals,
+  mintAuthority,
+}: CheckMintArgs) {
+  assert.strictEqual(account.decimals, decimals, "decimals");
+  checkPublicKey(account.address, address, "address");
+  checkPublicKey(account.mintAuthority, mintAuthority, "mintAuthority");
 }
 
 export function checkPublicKey(

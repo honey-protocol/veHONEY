@@ -3,7 +3,10 @@ use crate::*;
 #[derive(Accounts)]
 pub struct ModifyParams<'info> {
     pub owner: Signer<'info>,
-    #[account(mut, has_one = owner)]
+    #[account(
+        mut,
+        has_one = owner @ ProtocolError::InvalidOwner,
+    )]
     pub pool_info: Box<Account<'info, PoolInfo>>,
 }
 
