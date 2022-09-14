@@ -5,7 +5,10 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount};
 pub struct Stake<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-    #[account(has_one = token_mint, has_one = p_token_mint,)]
+    #[account(
+        has_one = token_mint @ ProtocolError::InvalidMint,
+        has_one = p_token_mint @ ProtocolError::InvalidMint,
+    )]
     pub pool_info: Box<Account<'info, PoolInfo>>,
     #[account(mut)]
     pub token_mint: Box<Account<'info, Mint>>,
@@ -59,9 +62,21 @@ impl<'info> Validate<'info> for Stake<'info> {
             self.pool_info.params.starts_at < Clock::get()?.unix_timestamp,
             ProtocolError::NotClaimable
         );
-        assert_keys_eq!(self.p_token_from.mint, self.p_token_mint);
-        assert_keys_eq!(self.p_token_from.owner, self.user_authority);
-        assert_keys_eq!(self.token_vault.owner, self.authority);
+        assert_keys_eq!(
+            self.p_token_from.mint,
+            self.p_token_mint,
+            ProtocolError::InvalidMint
+        );
+        assert_keys_eq!(
+            self.p_token_from.owner,
+            self.user_authority,
+            ProtocolError::InvalidOwner
+        );
+        assert_keys_eq!(
+            self.token_vault.owner,
+            self.authority,
+            ProtocolError::InvalidOwner
+        );
 
         Ok(())
     }

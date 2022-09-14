@@ -20,6 +20,15 @@ export type CheckMintArgs = {
   mintAuthority: PublicKey | null;
 };
 
+export type CheckPoolUserArgs = {
+  poolUser: any;
+  poolInfo: PublicKey;
+  owner: PublicKey;
+  depositAmount: anchor.BN;
+  claimedAmount: anchor.BN;
+  count: number;
+};
+
 export function checkStakePool({
   poolInfo,
   version,
@@ -54,6 +63,21 @@ export function checkMint({
   assert.strictEqual(account.decimals, decimals, "decimals");
   checkPublicKey(account.address, address, "address");
   checkPublicKey(account.mintAuthority, mintAuthority, "mintAuthority");
+}
+
+export function checkPoolUser({
+  poolUser,
+  poolInfo,
+  owner,
+  depositAmount,
+  claimedAmount,
+  count,
+}: CheckPoolUserArgs) {
+  checkPublicKey(poolUser.poolInfo, poolInfo, "poolInfo");
+  checkPublicKey(poolUser.owner, owner, "owner");
+  checkBN(poolUser.depositAmount, depositAmount, "depositAmount");
+  checkBN(poolUser.claimedAmount, claimedAmount, "claimedAmount");
+  assert.strictEqual(poolUser.count, count, "count");
 }
 
 export function checkPublicKey(

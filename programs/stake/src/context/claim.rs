@@ -6,7 +6,7 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount};
 pub struct Claim<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-    #[account(has_one = token_mint)]
+    #[account(has_one = token_mint @ ProtocolError::InvalidMint)]
     pub pool_info: Box<Account<'info, PoolInfo>>,
     /// CHECK:
     #[account(
@@ -19,7 +19,10 @@ pub struct Claim<'info> {
     pub authority: UncheckedAccount<'info>,
     #[account(mut)]
     pub token_mint: Box<Account<'info, Mint>>,
-    #[account(mut, has_one = pool_info)]
+    #[account(
+        mut,
+        has_one = pool_info @ ProtocolError::InvalidPool,
+    )]
     pub user_info: Box<Account<'info, PoolUser>>,
     pub user_owner: Signer<'info>,
     #[account(mut)]

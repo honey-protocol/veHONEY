@@ -3,9 +3,12 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct Deposit<'info> {
-    #[account(has_one = p_token_mint)]
+    #[account(has_one = p_token_mint @ ProtocolError::InvalidMint)]
     pub pool_info: Box<Account<'info, PoolInfo>>,
-    #[account(mut, has_one = pool_info)]
+    #[account(
+        mut,
+        has_one = pool_info @ ProtocolError::InvalidPool,
+    )]
     pub user_info: Box<Account<'info, PoolUser>>,
     pub user_owner: Signer<'info>,
     #[account(mut)]
@@ -23,9 +26,21 @@ impl<'info> Validate<'info> for Deposit<'info> {
             self.pool_info.version == STAKE_POOL_VERSION,
             ProtocolError::Uninitialized
         );
-        assert_keys_eq!(self.user_info.owner, self.user_owner);
-        assert_keys_eq!(self.source.mint, self.p_token_mint);
-        assert_keys_eq!(self.source.owner, self.user_authority);
+        assert_keys_eq!(
+            self.user_info.owner,
+            self.user_owner,
+            ProtocolError::InvalidOwner
+        );
+        assert_keys_eq!(
+            self.source.mint,
+            self.p_token_mint,
+            ProtocolError::InvalidMint
+        );
+        assert_keys_eq!(
+            self.source.owner,
+            self.user_authority,
+            ProtocolError::InvalidOwner
+        );
 
         Ok(())
     }
@@ -37,7 +52,7 @@ impl<'info> Deposit<'info> {
             self.source.amount >= amount,
             ProtocolError::InsufficientFunds
         );
-        invariant!(amount > 0, ProtocolError::InvalidParams);
+        invariant!(amount > 0, ProtocolError::InvalidInputValue);
 
         self.user_info.deposit(amount)?;
 
