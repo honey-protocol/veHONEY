@@ -82,7 +82,7 @@ impl<'info> LockNft<'info> {
 
         let seeds = &[LOCKER_SEED.as_bytes(), &self.base.key().to_bytes()[..32]];
 
-        token::transfer(self.into_transfer_context(&[&seeds[..]]), MAX_REWARD_AMOUNT)?;
+        token::transfer(self.to_transfer_context(&[&seeds[..]]), MAX_REWARD_AMOUNT)?;
 
         let locker = &mut self.locker;
         let escrow = &mut self.escrow;
@@ -98,7 +98,7 @@ impl<'info> LockNft<'info> {
         Ok(())
     }
 
-    fn into_transfer_context<'a, 'b, 'c>(
+    fn to_transfer_context<'a, 'b, 'c>(
         &self,
         signer: &'a [&'b [&'c [u8]]],
     ) -> CpiContext<'a, 'b, 'c, 'info, Transfer<'info>> {

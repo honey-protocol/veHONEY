@@ -83,10 +83,10 @@ impl PoolUser {
 
         if duration > pool_params.get_claim_period()? {
             // rest amount is claimable
-            return Ok((
+            Ok((
                 unwrap_int!(self.deposit_amount.checked_sub(self.claimed_amount)),
                 pool_params.max_claim_count,
-            ));
+            ))
         } else {
             let count = unwrap_opt!((duration / pool_params.claim_period_unit).to_u8());
             invariant!(count > self.count, ProtocolError::NotClaimable);
@@ -94,7 +94,7 @@ impl PoolUser {
             let delta = unwrap_opt!((self.deposit_amount as u128).checked_mul(delta as u128));
             let delta = unwrap_opt!(delta.checked_div(pool_params.max_claim_count as u128));
 
-            return Ok((unwrap_int!(delta.to_u64()), count));
+            Ok((unwrap_int!(delta.to_u64()), count))
         }
     }
 }

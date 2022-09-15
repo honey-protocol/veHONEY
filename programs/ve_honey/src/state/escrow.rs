@@ -45,7 +45,7 @@ impl Escrow {
         self.escrow_ends_at = next_escrow_ends_at;
 
         if receipt {
-            self.receipt_count = self.receipt_count + 1;
+            self.receipt_count += 1;
         }
 
         locker.locked_supply = unwrap_int!(locker.locked_supply.checked_add(lock_amount));

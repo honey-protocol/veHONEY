@@ -37,12 +37,12 @@ impl<'info> CastVote<'info> {
         }
 
         let seeds: &[&[&[u8]]] = locker_seeds!(self.locker);
-        govern::cpi::set_vote(self.into_set_vote_context(seeds), side, voting_power)?;
+        govern::cpi::set_vote(self.to_set_vote_context(seeds), side, voting_power)?;
 
         Ok(())
     }
 
-    fn into_set_vote_context<'a, 'b, 'c>(
+    fn to_set_vote_context<'a, 'b, 'c>(
         &self,
         signer: &'a [&'b [&'c [u8]]],
     ) -> CpiContext<'a, 'b, 'c, 'info, govern::cpi::accounts::SetVote<'info>> {

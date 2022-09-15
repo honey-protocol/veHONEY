@@ -74,7 +74,7 @@ impl NftReceipt {
             }
             amount = unwrap_int!(amount.checked_add(halving_amount));
             duration = unwrap_int!(duration.checked_sub(UNIT_VEST_DURATION));
-            year = year + 1;
+            year += 1;
         }
 
         Ok(amount)

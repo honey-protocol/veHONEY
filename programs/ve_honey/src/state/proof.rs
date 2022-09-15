@@ -16,7 +16,7 @@ impl Proof {
     pub const LEN: usize = PUBKEY_BYTES + 1 + PUBKEY_BYTES;
 
     pub fn read_type(proof_type: u8) -> Result<ProofType> {
-        ProofType::from_bits(proof_type).ok_or(error!(ProtocolError::InvariantViolated))
+        ProofType::from_bits(proof_type).ok_or_else(|| error!(ProtocolError::InvariantViolated))
     }
 
     pub fn reset_type(&mut self, proof_type: ProofType) {

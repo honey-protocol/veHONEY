@@ -28,12 +28,12 @@ impl<'info> ActivateProposal<'info> {
     /// Activates the proposal.
     pub fn process(&mut self) -> Result<()> {
         let seeds: &[&[&[u8]]] = locker_seeds!(self.locker);
-        govern::cpi::activate_proposal(self.into_activate_proposal_context(seeds))?;
+        govern::cpi::activate_proposal(self.to_activate_proposal_context(seeds))?;
 
         Ok(())
     }
 
-    fn into_activate_proposal_context<'a, 'b, 'c>(
+    fn to_activate_proposal_context<'a, 'b, 'c>(
         &self,
         signer: &'a [&'b [&'c [u8]]],
     ) -> CpiContext<'a, 'b, 'c, 'info, govern::cpi::accounts::ActivateProposal<'info>> {
