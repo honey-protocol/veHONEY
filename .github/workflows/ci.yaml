@@ -92,5 +92,8 @@ jobs:
       - name: Build
         run: anchor build --skip-lint
 
+      - name: Pull artifacts
+        run: sh ./scripts/pull_artifacts.sh
+
       - name: Run tests
-        run: sh ./scripts/run-test.sh
+        run: sh ./scripts/run_test.sh
