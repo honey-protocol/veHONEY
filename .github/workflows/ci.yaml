@@ -89,8 +89,4 @@ jobs:
         run: anchor build --skip-lint
 
       - name: Run tests
-        run: sh ./tests/run-anchor-tests.sh
-        env:
-          SIGNATORY_PRIV_KEY: ${{ secrets.SIGNATORY_PRIV_KEY }}
-          SIGNATORY_COMMITMENT: processed
-          SIGNATORY_PROGRAM_ID: DFLoSPFeB6VWYX3UZAz16XRmhJJrUWxjazgBVBSSaqHX
+        run: sh ./scripts/run-test.sh
