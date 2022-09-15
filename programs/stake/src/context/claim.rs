@@ -41,8 +41,16 @@ impl<'info> Validate<'info> for Claim<'info> {
             self.pool_info.params.starts_at < Clock::get()?.unix_timestamp,
             ProtocolError::NotClaimable
         );
-        assert_keys_eq!(self.user_info.owner, self.user_owner);
-        assert_keys_eq!(self.destination.mint, self.token_mint);
+        assert_keys_eq!(
+            self.user_info.owner,
+            self.user_owner,
+            ProtocolError::InvalidOwner
+        );
+        assert_keys_eq!(
+            self.destination.mint,
+            self.token_mint,
+            ProtocolError::InvalidMint
+        );
 
         Ok(())
     }

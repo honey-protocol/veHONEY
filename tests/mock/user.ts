@@ -1,6 +1,10 @@
 import * as anchor from "@project-serum/anchor";
 import { AnchorProvider, Program } from "@project-serum/anchor";
 import { PublicKey } from "@solana/web3.js";
+import {
+  TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+} from "@solana/spl-token";
 
 import { Stake } from "../../target/types/stake";
 import { VeHoney } from "../../target/types/ve_honey";
@@ -64,6 +68,81 @@ export class MockUser {
       .transaction();
   }
 
+  private async createDepositTx(amount: anchor.BN, owner?: PublicKey) {
+    return await this.stakeProgram.methods
+      .deposit(amount)
+      .accounts({
+        poolInfo: this.poolInfo.address,
+        userInfo: this.poolUser,
+        userOwner: owner ?? this.wallet.publicKey,
+        pTokenMint: this.poolInfo.pTokenMint.address,
+        source: await this.poolInfo.pTokenMint.getAssociatedTokenAddress(
+          this.wallet.publicKey
+        ),
+        userAuthority: this.wallet.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .transaction();
+  }
+
+  private async createClaimTx(owner?: PublicKey) {
+    let destination = await this.poolInfo.tokenMint.getAssociatedTokenAddress(
+      this.wallet.publicKey
+    );
+    let preInstruction: anchor.web3.TransactionInstruction | undefined =
+      undefined;
+
+    if (
+      (await this.poolInfo.tokenMint.tryGetAssociatedTokenAccount(
+        this.wallet.publicKey
+      )) === null
+    ) {
+      preInstruction = createAssociatedTokenAccountInstruction(
+        this.wallet.publicKey,
+        destination,
+        this.wallet.publicKey,
+        this.poolInfo.tokenMint.address
+      );
+    }
+
+    return await this.stakeProgram.methods
+      .claim()
+      .accounts({
+        payer: this.wallet.publicKey,
+        poolInfo: this.poolInfo.address,
+        authority: (await this.poolInfo.getVaultAuthority())[0],
+        tokenMint: this.poolInfo.tokenMint.address,
+        userInfo: this.poolUser,
+        userOwner: owner ?? this.wallet.publicKey,
+        destination,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .preInstructions([preInstruction])
+      .transaction();
+  }
+
+  public async deposit({ amount, owner }: DepositArgs) {
+    const tx = await this.createDepositTx(amount, owner?.publicKey);
+    const sig = await this.provider.sendAndConfirm(
+      tx,
+      [owner?.payer, this.wallet.payer].filter((s) => s !== undefined),
+      {
+        skipPreflight: true,
+      }
+    );
+    return sig;
+  }
+
+  public async claim(args?: ClaimArgs) {
+    const tx = await this.createClaimTx(args?.owner?.publicKey);
+    const sig = await this.provider.sendAndConfirm(
+      tx,
+      [args?.owner?.payer, this.wallet.payer].filter((s) => s !== undefined),
+      { skipPreflight: true }
+    );
+    return sig;
+  }
+
   public static async create(args: MockUserArgs) {
     const user = new MockUser(args);
     await user.init();
@@ -96,4 +175,13 @@ export class MockUser {
 export type MockUserArgs = {
   provider: AnchorProvider;
   poolInfo: MockStakePool;
+};
+
+export type DepositArgs = {
+  amount: anchor.BN;
+  owner?: MockWallet;
+};
+
+export type ClaimArgs = {
+  owner?: MockWallet;
 };

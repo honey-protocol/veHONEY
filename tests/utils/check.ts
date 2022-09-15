@@ -29,6 +29,12 @@ export type CheckPoolUserArgs = {
   count: number;
 };
 
+export type CheckTokenAccountArgs = {
+  account: any;
+  mint: PublicKey;
+  amount: bigint;
+};
+
 export function checkStakePool({
   poolInfo,
   version,
@@ -78,6 +84,15 @@ export function checkPoolUser({
   checkBN(poolUser.depositAmount, depositAmount, "depositAmount");
   checkBN(poolUser.claimedAmount, claimedAmount, "claimedAmount");
   assert.strictEqual(poolUser.count, count, "count");
+}
+
+export function checkTokenAccount({
+  account,
+  mint,
+  amount,
+}: CheckTokenAccountArgs) {
+  checkPublicKey(account.mint, mint, "mint");
+  assert.strictEqual(account.amount, amount, "amount");
 }
 
 export function checkPublicKey(
