@@ -72,8 +72,8 @@ pub mod stake {
     }
 
     #[access_control(ctx.accounts.validate())]
-    pub fn stake<'info>(
-        ctx: Context<'_, '_, '_, 'info, Stake<'info>>,
+    pub fn vest<'info>(
+        ctx: Context<'_, '_, '_, 'info, Vest<'info>>,
         amount: u64,
         duration: i64,
     ) -> Result<()> {

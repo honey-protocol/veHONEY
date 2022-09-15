@@ -2,7 +2,7 @@ use crate::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
-pub struct Stake<'info> {
+pub struct Vest<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     #[account(
@@ -52,7 +52,7 @@ pub struct Stake<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-impl<'info> Validate<'info> for Stake<'info> {
+impl<'info> Validate<'info> for Vest<'info> {
     fn validate(&self) -> Result<()> {
         invariant!(
             self.pool_info.version == STAKE_POOL_VERSION,
@@ -82,7 +82,7 @@ impl<'info> Validate<'info> for Stake<'info> {
     }
 }
 
-impl<'info> Stake<'info> {
+impl<'info> Vest<'info> {
     pub fn process(&mut self, amount: u64, duration: i64) -> Result<()> {
         invariant!(
             self.p_token_from.amount >= amount,
