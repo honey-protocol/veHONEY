@@ -15,7 +15,6 @@ export type CheckStakePoolArgs = {
 
 export type CheckMintArgs = {
   account: any;
-  address: PublicKey;
   decimals: number;
   mintAuthority: PublicKey | null;
 };
@@ -32,7 +31,7 @@ export type CheckPoolUserArgs = {
 export type CheckTokenAccountArgs = {
   account: any;
   mint: PublicKey;
-  amount: bigint;
+  amount: anchor.BN;
 };
 
 export function checkStakePool({
@@ -60,14 +59,8 @@ export function checkStakePool({
   );
 }
 
-export function checkMint({
-  account,
-  address,
-  decimals,
-  mintAuthority,
-}: CheckMintArgs) {
+export function checkMint({ account, decimals, mintAuthority }: CheckMintArgs) {
   assert.strictEqual(account.decimals, decimals, "decimals");
-  checkPublicKey(account.address, address, "address");
   checkPublicKey(account.mintAuthority, mintAuthority, "mintAuthority");
 }
 
@@ -92,7 +85,7 @@ export function checkTokenAccount({
   amount,
 }: CheckTokenAccountArgs) {
   checkPublicKey(account.mint, mint, "mint");
-  assert.strictEqual(account.amount, amount, "amount");
+  checkBN(account.amount, amount, "amount");
 }
 
 export function checkPublicKey(

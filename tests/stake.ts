@@ -238,7 +238,6 @@ describe("stake pool management", () => {
 
     checkMint({
       account: mintAccount,
-      address: tokenMint.address,
       decimals: 6,
       mintAuthority: (await stakePool.getVaultAuthority())[0],
     });
@@ -283,7 +282,6 @@ describe("stake pool management", () => {
 
     checkMint({
       account: mintAccount,
-      address: tokenMint.address,
       decimals: 6,
       mintAuthority: tokenMint.payer.publicKey,
     });
@@ -336,19 +334,19 @@ describe("user stake/deposit/claim to stake pool", () => {
 
   it("invalid user owner cannot deposit pToken", async () => {
     const user = await MockUser.create({ provider, poolInfo: stakePool });
-    const pTokenAmount = 10_000_000;
-    await stakePool.pTokenMint.mintTo(user.wallet, BigInt(pTokenAmount));
+    const pTokenAmount = new anchor.BN(10_000_000);
+    await stakePool.pTokenMint.mintTo(user.wallet, new anchor.BN(pTokenAmount));
     const pTokenAccount = await stakePool.pTokenMint.getAssociatedTokenAccount(
       user.wallet.publicKey
     );
     checkTokenAccount({
       account: pTokenAccount,
       mint: stakePool.pTokenMint.address,
-      amount: BigInt(pTokenAmount),
+      amount: pTokenAmount,
     });
     const invalidOwner = await MockWallet.createWithBalance(provider, 1);
     const depositWithFail = user.deposit({
-      amount: new anchor.BN(pTokenAmount),
+      amount: pTokenAmount,
       owner: invalidOwner,
     });
 
@@ -361,17 +359,17 @@ describe("user stake/deposit/claim to stake pool", () => {
 
   it("can be deposited", async () => {
     const user = await MockUser.create({ provider, poolInfo: stakePool });
-    const pTokenAmount = 10_000_000;
-    await stakePool.pTokenMint.mintTo(user.wallet, BigInt(pTokenAmount));
+    const pTokenAmount = new anchor.BN(10_000_000);
+    await stakePool.pTokenMint.mintTo(user.wallet, pTokenAmount);
     await user.deposit({
-      amount: new anchor.BN(pTokenAmount),
+      amount: pTokenAmount,
     });
     const userAccount = await user.fetch();
     checkPoolUser({
       poolUser: userAccount,
       poolInfo: stakePool.address,
       owner: user.wallet.publicKey,
-      depositAmount: new anchor.BN(pTokenAmount),
+      depositAmount: pTokenAmount,
       claimedAmount: new anchor.BN(0),
       count: 0,
     });
@@ -379,10 +377,10 @@ describe("user stake/deposit/claim to stake pool", () => {
 
   it("invalid user owner cannot claim token", async () => {
     const user = await MockUser.create({ provider, poolInfo: stakePool });
-    const pTokenAmount = 10_000_000;
-    await stakePool.pTokenMint.mintTo(user.wallet, BigInt(pTokenAmount));
+    const pTokenAmount = new anchor.BN(10_000_000);
+    await stakePool.pTokenMint.mintTo(user.wallet, pTokenAmount);
     await user.deposit({
-      amount: new anchor.BN(pTokenAmount),
+      amount: pTokenAmount,
     });
     const invalidOwner = await MockWallet.createWithBalance(provider, 1);
     const claimWithFail = user.claim({ owner: invalidOwner });
@@ -401,10 +399,10 @@ describe("user stake/deposit/claim to stake pool", () => {
     });
 
     const user = await MockUser.create({ provider, poolInfo: stakePool });
-    const pTokenAmount = 10_000_000;
-    await stakePool.pTokenMint.mintTo(user.wallet, BigInt(pTokenAmount));
+    const pTokenAmount = new anchor.BN(10_000_000);
+    await stakePool.pTokenMint.mintTo(user.wallet, pTokenAmount);
     await user.deposit({
-      amount: new anchor.BN(pTokenAmount),
+      amount: pTokenAmount,
     });
     const claimWithFail = user.claim();
     await expect(claimWithFail).to.eventually.be.rejectedWith(
@@ -420,10 +418,10 @@ describe("user stake/deposit/claim to stake pool", () => {
     });
 
     const user = await MockUser.create({ provider, poolInfo: stakePool });
-    const pTokenAmount = 10_000_000;
-    await stakePool.pTokenMint.mintTo(user.wallet, BigInt(pTokenAmount));
+    const pTokenAmount = new anchor.BN(10_000_000);
+    await stakePool.pTokenMint.mintTo(user.wallet, pTokenAmount);
     await user.deposit({
-      amount: new anchor.BN(pTokenAmount),
+      amount: pTokenAmount,
     });
     const claimWithFail = user.claim();
     await expect(claimWithFail).to.eventually.be.rejectedWith(
@@ -438,10 +436,10 @@ describe("user stake/deposit/claim to stake pool", () => {
       maxClaimCount: 21,
     });
     const user = await MockUser.create({ provider, poolInfo: stakePool });
-    const pTokenAmount = 10_000_000;
-    await stakePool.pTokenMint.mintTo(user.wallet, BigInt(pTokenAmount));
+    const pTokenAmount = new anchor.BN(10_000_000);
+    await stakePool.pTokenMint.mintTo(user.wallet, pTokenAmount);
     await user.deposit({
-      amount: new anchor.BN(pTokenAmount),
+      amount: pTokenAmount,
     });
     await sleep(3000);
     const claimWithFail = user.claim();
@@ -453,9 +451,7 @@ describe("user stake/deposit/claim to stake pool", () => {
     await stakePool.setMintAuthority();
     await user.claim();
 
-    const claimedAmount = Math.floor(
-      pTokenAmount / stakePool.params.maxClaimCount
-    );
+    const claimedAmount = pTokenAmount.divn(stakePool.params.maxClaimCount);
     const userTokenAccount =
       await stakePool.tokenMint.getAssociatedTokenAccount(
         user.wallet.publicKey
@@ -466,15 +462,15 @@ describe("user stake/deposit/claim to stake pool", () => {
       poolUser: userAccount,
       poolInfo: stakePool.address,
       owner: user.wallet.publicKey,
-      depositAmount: new anchor.BN(pTokenAmount),
-      claimedAmount: new anchor.BN(claimedAmount),
+      depositAmount: pTokenAmount,
+      claimedAmount: claimedAmount,
       count: 1,
     });
 
     checkTokenAccount({
       account: userTokenAccount,
       mint: stakePool.tokenMint.address,
-      amount: BigInt(claimedAmount),
+      amount: claimedAmount,
     });
   });
 
@@ -486,10 +482,10 @@ describe("user stake/deposit/claim to stake pool", () => {
     });
     await stakePool.setMintAuthority();
     const user = await MockUser.create({ provider, poolInfo: stakePool });
-    const pTokenAmount = 10_000_000;
-    await stakePool.pTokenMint.mintTo(user.wallet, BigInt(pTokenAmount));
+    const pTokenAmount = new anchor.BN(10_000_000);
+    await stakePool.pTokenMint.mintTo(user.wallet, pTokenAmount);
     await user.deposit({
-      amount: new anchor.BN(pTokenAmount),
+      amount: pTokenAmount,
     });
     await sleep(22000);
 
@@ -505,7 +501,7 @@ describe("user stake/deposit/claim to stake pool", () => {
     checkTokenAccount({
       account: userTokenAccount,
       mint: stakePool.tokenMint.address,
-      amount: BigInt(pTokenAmount),
+      amount: pTokenAmount,
     });
   });
 });

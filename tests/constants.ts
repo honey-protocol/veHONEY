@@ -12,3 +12,12 @@ export const WHITELIST_ENTRY_SEED = "LockerWhitelistEntry";
 export const TREASURY_SEED = "Treasury";
 export const PROOF_SEED = "Proof";
 export const NFT_RECEIPT_SEED = "Receipt";
+
+// external seeds
+export const SMART_WALLET_SEED = "GokiSmartWallet";
+export const TRANSACTION_SEED = "GokiTransaction";
+export const SUBACCOUNT_INFO_SEED = "GokiSubaccountInfo";
+export const GOVERNOR_SEED = "TribecaGovernor";
+export const PROPOSAL_SEED = "TribecaProposal";
+export const PROPOSAL_META_SEED = "TribecaProposalMeta";
+export const VOTE_SEED = "TribecaVote";

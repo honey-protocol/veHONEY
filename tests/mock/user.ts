@@ -3,7 +3,8 @@ import { AnchorProvider, Program } from "@project-serum/anchor";
 import { PublicKey } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountInstruction,
+  Token,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 
 import { Stake } from "../../target/types/stake";
@@ -97,11 +98,13 @@ export class MockUser {
         this.wallet.publicKey
       )) === null
     ) {
-      preInstruction = createAssociatedTokenAccountInstruction(
-        this.wallet.publicKey,
+      preInstruction = Token.createAssociatedTokenAccountInstruction(
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+        TOKEN_PROGRAM_ID,
+        this.poolInfo.tokenMint.address,
         destination,
         this.wallet.publicKey,
-        this.poolInfo.tokenMint.address
+        this.wallet.publicKey
       );
     }
 
