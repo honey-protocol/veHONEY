@@ -3,6 +3,7 @@ use crate::error::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
+use govern::Governor;
 use vipers::*;
 
 #[derive(Accounts)]
@@ -28,6 +29,10 @@ pub struct InitTreasury<'info> {
     pub treasury: Box<Account<'info, TokenAccount>>,
     /// Mint of the token that can be used to join the [Locker].
     pub token_mint: Box<Account<'info, Mint>>,
+    /// The [Governor].
+    pub governor: Box<Account<'info, Governor>>,
+    /// The smart wallet on the [Governor].
+    pub smart_wallet: Signer<'info>,
 
     /// System program.
     pub system_program: Program<'info, System>,
@@ -49,6 +54,16 @@ impl<'info> Validate<'info> for InitTreasury<'info> {
             self.locker.token_mint,
             self.token_mint,
             ProtocolError::InvalidLockerMint
+        );
+        assert_keys_eq!(
+            self.locker.governor,
+            self.governor,
+            ProtocolError::GovernorMismatch
+        );
+        assert_keys_eq!(
+            self.governor.smart_wallet,
+            self.smart_wallet,
+            ProtocolError::SmartWalletMismatch
         );
 
         Ok(())

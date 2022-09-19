@@ -1,22 +1,25 @@
 import * as anchor from "@project-serum/anchor";
 import { AnchorProvider, Program } from "@project-serum/anchor";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
   GovernorWrapper,
   TribecaSDK,
   findGovernorAddress,
 } from "@tribecahq/tribeca-sdk";
 import { SmartWalletWrapper, GokiSDK } from "@gokiprotocol/client";
-import { SolanaProvider } from "@saberhq/solana-contrib";
+import { SolanaProvider, Provider } from "@saberhq/solana-contrib";
 
 import { VeHoney } from "../../target/types/ve_honey";
+import { Stake } from "../../target/types/stake";
 import { MockWallet } from "./wallet";
 import { MockMint } from "./mint";
 import * as constants from "../constants";
 
 export class MockGovernor {
   provider: AnchorProvider;
-  program: Program<VeHoney>;
+  veHoneyProgram: Program<VeHoney>;
+  stakeProgram: Program<Stake>;
 
   private _locker: PublicKey | undefined;
   get locker(): PublicKey {
@@ -66,7 +69,8 @@ export class MockGovernor {
     governorParams,
   }: MockGovernorArgs) {
     this.provider = provider;
-    this.program = anchor.workspace.VeHoney as Program<VeHoney>;
+    this.veHoneyProgram = anchor.workspace.VeHoney as Program<VeHoney>;
+    this.stakeProgram = anchor.workspace.Stake as Program<Stake>;
     this.lockerBase = Keypair.generate();
     this.tokenMint = tokenMint;
     this.lockerParams = lockerParams;
@@ -79,7 +83,7 @@ export class MockGovernor {
     this.governorSDK = TribecaSDK.load({
       provider: SolanaProvider.init({
         connection: this.provider.connection,
-        wallet: this.provider.wallet,
+        wallet: this.wallet,
         opts: this.provider.opts,
       }),
     });
@@ -93,12 +97,158 @@ export class MockGovernor {
         numOwners: 3,
       });
 
-    await newSmartWalletTx;
+    await newSmartWalletTx.confirm({ skipPreflight: true });
+
+    this._smartWallet = smartWalletWrapper;
+
+    const { wrapper: governorWrapper, tx: createGovernorTx } =
+      await this.governorSDK.govern.createGovernor({
+        baseKP: this.governorBase,
+        electorate: this.locker,
+        smartWallet: smartWalletWrapper.key,
+        ...this.governorParams,
+      });
+
+    await createGovernorTx.confirm({ skipPreflight: true });
+
+    this._governor = governorWrapper;
+  }
+
+  private async createInitLockerTx() {
+    return await this.veHoneyProgram.methods
+      .initLocker(this.lockerParams)
+      .accounts({
+        payer: this.wallet.publicKey,
+        base: this.lockerBase.publicKey,
+        locker: this.locker,
+        tokenMint: this.tokenMint.address,
+        governor: this.governor.governorKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .transaction();
+  }
+
+  private async createSetLockerParamsIx(params: LockerParams) {
+    return await this.veHoneyProgram.methods
+      .setLockerParams(params)
+      .accounts({
+        locker: this.locker,
+        governor: this.governor.governorKey,
+        smartWallet: this.smartWallet.key,
+      })
+      .instruction();
+  }
+
+  private async createInitTreasuryIx() {
+    return await this.veHoneyProgram.methods
+      .initTreasury()
+      .accounts({
+        payer: this.wallet.publicKey,
+        locker: this.locker,
+        treasury: await this.getTreasuryAddress(),
+        tokenMint: this.tokenMint.address,
+        governor: this.governor.governorKey,
+        smartWallet: this.smartWallet.key,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .instruction();
+  }
+
+  private async createApproveProgramLockPrivilegeIx() {
+    return await this.veHoneyProgram.methods
+      .approveProgramLockPrivilege()
+      .accounts({
+        payer: this.wallet.publicKey,
+        locker: await this.getLockerAddress(),
+        whitelistEntry: await this.getWhitelistEntryAddress(
+          this.stakeProgram.programId,
+          anchor.web3.SystemProgram.programId
+        ),
+        governor: this.governor.governorKey,
+        smartWallet: this.smartWallet.key,
+        executableId: this.stakeProgram.programId,
+        whitelistedOwner: anchor.web3.SystemProgram.programId,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .instruction();
+  }
+
+  private async createRevokeProgramLockPrivilegeIx(whitelistEntry: PublicKey) {
+    return await this.veHoneyProgram.methods
+      .revokeProgramLockPrivilege()
+      .accounts({
+        payer: this.wallet.publicKey,
+        locker: this.locker,
+        whitelistEntry,
+        governor: this.governor.governorKey,
+        smartWallet: this.smartWallet.key,
+      })
+      .instruction();
   }
 
   public static async create(args: MockGovernorArgs) {
     const governor = new MockGovernor(args);
     await governor.init();
+    const tx = await governor.createInitLockerTx();
+    await governor.provider.sendAndConfirm(
+      tx,
+      [governor.wallet.payer, governor.lockerBase],
+      { skipPreflight: true }
+    );
+    return governor;
+  }
+
+  public async setLockerParams(params: LockerParams) {
+    const ix = await this.createSetLockerParamsIx(params);
+    return await this.executeTransactionBySmartWallet({
+      provider: this.governorSDK.provider,
+      smartWalletWrapper: this.smartWallet,
+      instructions: [ix],
+    });
+  }
+
+  public async initTreasury() {
+    const ix = await this.createInitTreasuryIx();
+    return await this.executeTransactionBySmartWallet({
+      provider: this.governorSDK.provider,
+      smartWalletWrapper: this.smartWallet,
+      instructions: [ix],
+    });
+  }
+
+  public async approveProgramLockPrivilege() {
+    const ix = await this.createApproveProgramLockPrivilegeIx();
+    return await this.executeTransactionBySmartWallet({
+      provider: this.governorSDK.provider,
+      smartWalletWrapper: this.smartWallet,
+      instructions: [ix],
+    });
+  }
+
+  public async revokeProgramLockPrivilege(whitelistEntry: PublicKey) {
+    const ix = await this.createRevokeProgramLockPrivilegeIx(whitelistEntry);
+    return await this.executeTransactionBySmartWallet({
+      provider: this.governorSDK.provider,
+      smartWalletWrapper: this.smartWallet,
+      instructions: [ix],
+    });
+  }
+
+  public async fetchLocker() {
+    return await this.veHoneyProgram.account.locker.fetchNullable(this.locker);
+  }
+
+  public async fetchWhitelistEntry() {
+    const whitelistEntryAddress = await this.getWhitelistEntryAddress(
+      this.stakeProgram.programId,
+      anchor.web3.SystemProgram.programId
+    );
+
+    return await this.veHoneyProgram.account.whitelistEntry.fetchNullable(
+      whitelistEntryAddress
+    );
   }
 
   public async getLockerAddress() {
@@ -107,9 +257,61 @@ export class MockGovernor {
         Buffer.from(constants.LOCKER_SEED),
         this.lockerBase.publicKey.toBuffer(),
       ],
-      this.program.programId
+      this.veHoneyProgram.programId
     );
     return address;
+  }
+
+  public async getTreasuryAddress() {
+    const [address] = await PublicKey.findProgramAddress(
+      [
+        Buffer.from(constants.TREASURY_SEED),
+        this.locker.toBuffer(),
+        this.tokenMint.address.toBuffer(),
+      ],
+      this.veHoneyProgram.programId
+    );
+    return address;
+  }
+
+  public async getWhitelistEntryAddress(
+    executableId: PublicKey,
+    whitelistedOwner: PublicKey
+  ) {
+    const [address] = await PublicKey.findProgramAddress(
+      [
+        Buffer.from(constants.WHITELIST_ENTRY_SEED),
+        this.locker.toBuffer(),
+        executableId.toBuffer(),
+        whitelistedOwner.toBuffer(),
+      ],
+      this.veHoneyProgram.programId
+    );
+    return address;
+  }
+
+  private async executeTransactionBySmartWallet({
+    provider,
+    smartWalletWrapper,
+    instructions,
+  }: {
+    provider: Provider;
+    smartWalletWrapper: SmartWalletWrapper;
+    instructions: TransactionInstruction[];
+  }): Promise<PublicKey> {
+    const { transactionKey, tx: tx1 } = await smartWalletWrapper.newTransaction(
+      {
+        proposer: provider.wallet.publicKey,
+        instructions,
+      }
+    );
+
+    await tx1.confirm();
+
+    const tx2 = await smartWalletWrapper.executeTransaction({ transactionKey });
+    await tx2.confirm();
+
+    return transactionKey;
   }
 }
 

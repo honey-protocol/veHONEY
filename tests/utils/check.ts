@@ -3,6 +3,7 @@ import { PublicKey } from "@solana/web3.js";
 import { assert } from "chai";
 
 import { StakePoolParams } from "../mock/stakePool";
+import { LockerParams } from "../mock/governor";
 
 export type CheckStakePoolArgs = {
   poolInfo: any;
@@ -32,6 +33,22 @@ export type CheckTokenAccountArgs = {
   account: any;
   mint: PublicKey;
   amount: anchor.BN;
+};
+
+export type CheckLockerArgs = {
+  account: any;
+  base: PublicKey;
+  tokenMint: PublicKey;
+  lockedSupply: anchor.BN;
+  governor: PublicKey;
+  params: LockerParams;
+};
+
+export type CheckWhitelistEntryArgs = {
+  account: any;
+  locker: PublicKey;
+  programId: PublicKey;
+  owner: PublicKey;
 };
 
 export function checkStakePool({
@@ -86,6 +103,56 @@ export function checkTokenAccount({
 }: CheckTokenAccountArgs) {
   checkPublicKey(account.mint, mint, "mint");
   checkBN(account.amount, amount, "amount");
+}
+
+export function checkLocker({
+  account,
+  base,
+  tokenMint,
+  lockedSupply,
+  governor,
+  params,
+}: CheckLockerArgs) {
+  checkPublicKey(account.base, base, "base");
+  checkPublicKey(account.tokenMint, tokenMint, "tokenMint");
+  checkBN(account.lockedSupply, lockedSupply, "lockedSupply");
+  checkPublicKey(account.governor, governor, "governor");
+  checkBN(
+    account.params.minStakeDuration,
+    params.minStakeDuration,
+    "params.minStakeDuration"
+  );
+  checkBN(
+    account.params.maxStakeDuration,
+    params.maxStakeDuration,
+    "params.maxStakeDuration"
+  );
+  assert.strictEqual(
+    account.params.whitelistEnabled,
+    params.whitelistEnabled,
+    "params.whitelistEnabled"
+  );
+  assert.strictEqual(
+    account.params.multiplier,
+    params.multiplier,
+    "params.multiplier"
+  );
+  checkBN(
+    account.params.proposalActivationMinVotes,
+    params.proposalActivationMinVotes,
+    "params.proposalActivationMinVotes"
+  );
+}
+
+export function checkWhitelistEntry({
+  account,
+  locker,
+  programId,
+  owner,
+}: CheckWhitelistEntryArgs) {
+  checkPublicKey(account.locker, locker, "locker");
+  checkPublicKey(account.programId, programId, "programId");
+  checkPublicKey(account.owner, owner, "owner");
 }
 
 export function checkPublicKey(

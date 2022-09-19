@@ -12,6 +12,7 @@ import { VeHoney } from "../../target/types/ve_honey";
 import { MockStakePool } from "./stakePool";
 import { MockWallet } from "./wallet";
 import * as constants from "../constants";
+import { MockGovernor } from "./governor";
 
 export class MockUser {
   provider: AnchorProvider;
@@ -43,12 +44,14 @@ export class MockUser {
   }
 
   poolInfo: MockStakePool;
+  governor: MockGovernor;
 
-  constructor({ provider, poolInfo }: MockUserArgs) {
+  constructor({ provider, poolInfo, governor }: MockUserArgs) {
     this.provider = provider;
     this.stakeProgram = anchor.workspace.Stake as Program<Stake>;
     this.veHoneyProgram = anchor.workspace.VeHoney as Program<VeHoney>;
     this.poolInfo = poolInfo;
+    this.governor = governor;
   }
 
   public async init() {
@@ -124,6 +127,19 @@ export class MockUser {
       .transaction();
   }
 
+  private async createInitEscrowTx() {
+    return await this.veHoneyProgram.methods
+      .initEscrow()
+      .accounts({
+        payer: this.wallet.publicKey,
+        locker: this.governor.locker,
+        escrow: await this.getEscrowAddress(),
+        escrowOwner: this.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .transaction();
+  }
+
   public async deposit({ amount, owner }: DepositArgs) {
     const tx = await this.createDepositTx(amount, owner?.publicKey);
     const sig = await this.provider.sendAndConfirm(
@@ -143,6 +159,14 @@ export class MockUser {
       [args?.owner?.payer, this.wallet.payer].filter((s) => s !== undefined),
       { skipPreflight: true }
     );
+    return sig;
+  }
+
+  public async initEscrow() {
+    const tx = await this.createInitEscrowTx();
+    const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
+      skipPreflight: true,
+    });
     return sig;
   }
 
@@ -168,6 +192,19 @@ export class MockUser {
     return address;
   }
 
+  public async getEscrowAddress() {
+    const [address] = await PublicKey.findProgramAddress(
+      [
+        Buffer.from(constants.ESCROW_SEED),
+        this.governor.locker.toBuffer(),
+        this.wallet.publicKey.toBuffer(),
+      ],
+      this.veHoneyProgram.programId
+    );
+
+    return address;
+  }
+
   public async fetch() {
     return await this.stakeProgram.account.poolUser.fetchNullable(
       this.poolUser
@@ -178,6 +215,7 @@ export class MockUser {
 export type MockUserArgs = {
   provider: AnchorProvider;
   poolInfo: MockStakePool;
+  governor: MockGovernor;
 };
 
 export type DepositArgs = {
