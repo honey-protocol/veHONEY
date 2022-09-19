@@ -29,7 +29,7 @@ export class MockUser {
 
   private _escrow: PublicKey | undefined;
   get escrow(): PublicKey {
-    if (this.escrow === undefined) {
+    if (this._escrow === undefined) {
       throw new Error("escrow undefined");
     }
     return this._escrow;
@@ -41,6 +41,14 @@ export class MockUser {
       throw new Error("wallet undefined");
     }
     return this._wallet;
+  }
+
+  private _voteDelegate: MockWallet | undefined;
+  get voteDelegate(): MockWallet {
+    if (this._voteDelegate === undefined) {
+      throw new Error("vote delegate undefined");
+    }
+    return this._voteDelegate;
   }
 
   poolInfo: MockStakePool;
@@ -57,6 +65,10 @@ export class MockUser {
   public async init() {
     this._wallet = await MockWallet.createWithBalance(this.provider, 1);
     this._poolUser = await this.getPoolUserAddress();
+    if (this.governor) {
+      this._escrow = await this.getEscrowAddress();
+      this._voteDelegate = this._wallet;
+    }
   }
 
   private async createInitPoolUserTx() {
@@ -111,20 +123,21 @@ export class MockUser {
       );
     }
 
-    return await this.stakeProgram.methods
-      .claim()
-      .accounts({
-        payer: this.wallet.publicKey,
-        poolInfo: this.poolInfo.address,
-        authority: (await this.poolInfo.getVaultAuthority())[0],
-        tokenMint: this.poolInfo.tokenMint.address,
-        userInfo: this.poolUser,
-        userOwner: owner ?? this.wallet.publicKey,
-        destination,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .preInstructions([preInstruction])
-      .transaction();
+    let txBuilder = this.stakeProgram.methods.claim().accounts({
+      payer: this.wallet.publicKey,
+      poolInfo: this.poolInfo.address,
+      authority: (await this.poolInfo.getVaultAuthority())[0],
+      tokenMint: this.poolInfo.tokenMint.address,
+      userInfo: this.poolUser,
+      userOwner: owner ?? this.wallet.publicKey,
+      destination,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    });
+    if (preInstruction) {
+      txBuilder = txBuilder.preInstructions([preInstruction]);
+    }
+
+    return await txBuilder.transaction();
   }
 
   private async createInitEscrowTx() {
@@ -138,6 +151,62 @@ export class MockUser {
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .transaction();
+  }
+
+  private async createSetVoteDelegateTx(
+    newDelegate: PublicKey,
+    owner?: PublicKey
+  ) {
+    return await this.veHoneyProgram.methods
+      .setVoteDelegate(newDelegate)
+      .accounts({
+        escrow: this.escrow,
+        escrowOwner: owner ?? this.wallet.publicKey,
+      })
+      .transaction();
+  }
+
+  private async createLockTx(amount: anchor.BN, duration: anchor.BN) {
+    let lockedTokens = await this.poolInfo.tokenMint.getAssociatedTokenAddress(
+      this.escrow
+    );
+    let preInstruction: anchor.web3.TransactionInstruction | undefined =
+      undefined;
+
+    if (
+      (await this.poolInfo.tokenMint.tryGetAssociatedTokenAccount(
+        this.escrow
+      )) === null
+    ) {
+      preInstruction = Token.createAssociatedTokenAccountInstruction(
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+        TOKEN_PROGRAM_ID,
+        this.poolInfo.tokenMint.address,
+        lockedTokens,
+        this.escrow,
+        this.wallet.publicKey
+      );
+    }
+
+    let txBuilder = this.veHoneyProgram.methods
+      .lock(amount, duration)
+      .accounts({
+        locker: this.governor.locker,
+        escrow: this.escrow,
+        lockedTokens: await this.getLockedTokensAddress(),
+        escrowOwner: this.wallet.publicKey,
+        sourceTokens: await this.governor.tokenMint.getAssociatedTokenAddress(
+          this.wallet.publicKey
+        ),
+        sourceTokensAuthority: this.wallet.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      });
+
+    if (preInstruction) {
+      txBuilder = txBuilder.preInstructions([preInstruction]);
+    }
+
+    return await txBuilder.transaction();
   }
 
   public async deposit({ amount, owner }: DepositArgs) {
@@ -170,10 +239,35 @@ export class MockUser {
     return sig;
   }
 
+  public async setVoteDelegate({ newDelegate, owner }: SetVoteDelegateArgs) {
+    const tx = await this.createSetVoteDelegateTx(
+      newDelegate.publicKey,
+      owner?.publicKey
+    );
+    const sig = await this.provider.sendAndConfirm(
+      tx,
+      [owner?.payer ?? this.wallet.payer],
+      { skipPreflight: true }
+    );
+    this._voteDelegate = newDelegate;
+    return sig;
+  }
+
+  public async lock({ amount, duration }: LockArgs) {
+    const tx = await this.createLockTx(amount, duration);
+    const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
+      skipPreflight: true,
+    });
+    return sig;
+  }
+
   public static async create(args: MockUserArgs) {
     const user = new MockUser(args);
     await user.init();
-    const tx = await user.createInitPoolUserTx();
+    const tx = new anchor.web3.Transaction().add(
+      await user.createInitPoolUserTx()
+    );
+    if (user.governor !== undefined) tx.add(await user.createInitEscrowTx());
     await user.provider.sendAndConfirm(tx, [user.wallet.payer], {
       skipPreflight: true,
     });
@@ -205,17 +299,25 @@ export class MockUser {
     return address;
   }
 
+  public async getLockedTokensAddress() {
+    return await this.poolInfo.tokenMint.getAssociatedTokenAddress(this.escrow);
+  }
+
   public async fetch() {
     return await this.stakeProgram.account.poolUser.fetchNullable(
       this.poolUser
     );
+  }
+
+  public async fetchEscrow() {
+    return await this.veHoneyProgram.account.escrow.fetchNullable(this.escrow);
   }
 }
 
 export type MockUserArgs = {
   provider: AnchorProvider;
   poolInfo: MockStakePool;
-  governor: MockGovernor;
+  governor?: MockGovernor;
 };
 
 export type DepositArgs = {
@@ -225,4 +327,14 @@ export type DepositArgs = {
 
 export type ClaimArgs = {
   owner?: MockWallet;
+};
+
+export type SetVoteDelegateArgs = {
+  newDelegate: MockWallet;
+  owner?: MockWallet;
+};
+
+export type LockArgs = {
+  amount: anchor.BN;
+  duration: anchor.BN;
 };

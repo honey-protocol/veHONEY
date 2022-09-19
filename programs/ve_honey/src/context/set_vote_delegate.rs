@@ -1,3 +1,4 @@
+use crate::error::ProtocolError;
 use crate::state::*;
 use anchor_lang::prelude::*;
 use vipers::*;
@@ -28,7 +29,11 @@ impl<'info> SetVoteDelegate<'info> {
 
 impl<'info> Validate<'info> for SetVoteDelegate<'info> {
     fn validate(&self) -> Result<()> {
-        assert_keys_eq!(self.escrow.owner, self.escrow_owner);
+        assert_keys_eq!(
+            self.escrow.owner,
+            self.escrow_owner,
+            ProtocolError::InvalidAccountOwner
+        );
 
         Ok(())
     }

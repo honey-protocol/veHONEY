@@ -59,7 +59,8 @@ export class MockMint {
       ASSOCIATED_TOKEN_PROGRAM_ID,
       TOKEN_PROGRAM_ID,
       this.address,
-      owner
+      owner,
+      true
     );
   }
 

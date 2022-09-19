@@ -51,6 +51,18 @@ export type CheckWhitelistEntryArgs = {
   owner: PublicKey;
 };
 
+export type CheckEscrowArgs = {
+  account: any;
+  locker: PublicKey;
+  owner: PublicKey;
+  tokens: PublicKey;
+  amount: anchor.BN;
+  escrowStartedAt: anchor.BN;
+  escrowEndsAt: anchor.BN;
+  receiptCount: anchor.BN;
+  voteDelegate: PublicKey;
+};
+
 export function checkStakePool({
   poolInfo,
   version,
@@ -153,6 +165,27 @@ export function checkWhitelistEntry({
   checkPublicKey(account.locker, locker, "locker");
   checkPublicKey(account.programId, programId, "programId");
   checkPublicKey(account.owner, owner, "owner");
+}
+
+export function checkEscrow({
+  account,
+  locker,
+  owner,
+  tokens,
+  amount,
+  escrowStartedAt,
+  escrowEndsAt,
+  receiptCount,
+  voteDelegate,
+}: CheckEscrowArgs) {
+  checkPublicKey(account.locker, locker, "locker");
+  checkPublicKey(account.owner, owner, "owner");
+  checkPublicKey(account.tokens, tokens, "tokens");
+  checkBN(account.amount, amount, "amount");
+  checkBN(account.escrowStartedAt, escrowStartedAt, "escrowStartedAt");
+  checkBN(account.escrowEndsAt, escrowEndsAt, "escrowEndsAt");
+  checkBN(account.receiptCount, receiptCount, "receiptCount");
+  checkPublicKey(account.voteDelegate, voteDelegate, "voteDelegate");
 }
 
 export function checkPublicKey(
