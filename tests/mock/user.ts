@@ -209,6 +209,148 @@ export class MockUser {
     return await txBuilder.transaction();
   }
 
+  private async createVestTx(pTokenAmount: anchor.BN, duration: anchor.BN) {
+    let lockedTokens = await this.poolInfo.tokenMint.getAssociatedTokenAddress(
+      this.escrow
+    );
+    let preInstruction: anchor.web3.TransactionInstruction | undefined =
+      undefined;
+
+    if (
+      (await this.poolInfo.tokenMint.tryGetAssociatedTokenAccount(
+        this.escrow
+      )) === null
+    ) {
+      preInstruction = Token.createAssociatedTokenAccountInstruction(
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+        TOKEN_PROGRAM_ID,
+        this.poolInfo.tokenMint.address,
+        lockedTokens,
+        this.escrow,
+        this.wallet.publicKey
+      );
+    }
+
+    let txBuilder = this.stakeProgram.methods
+      .vest(pTokenAmount, duration)
+      .accounts({
+        payer: this.wallet.publicKey,
+        poolInfo: this.poolInfo.address,
+        tokenMint: this.poolInfo.tokenMint.address,
+        pTokenMint: this.poolInfo.pTokenMint.address,
+        pTokenFrom: await this.poolInfo.pTokenMint.getAssociatedTokenAddress(
+          this.wallet.publicKey
+        ),
+        userAuthority: this.wallet.publicKey,
+        tokenVault: (await this.poolInfo.getTokenVaultAddress())[0],
+        authority: (await this.poolInfo.getVaultAuthority())[0],
+        locker: this.governor.locker,
+        escrow: this.escrow,
+        lockedTokens: await this.getLockedTokensAddress(),
+        lockerProgram: this.veHoneyProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .remainingAccounts([
+        {
+          pubkey: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
+          isSigner: false,
+          isWritable: false,
+        },
+        {
+          pubkey: await this.governor.getWhitelistEntryAddress(
+            this.stakeProgram.programId,
+            anchor.web3.SystemProgram.programId
+          ),
+          isSigner: false,
+          isWritable: false,
+        },
+      ]);
+
+    if (preInstruction) {
+      txBuilder = txBuilder.preInstructions([preInstruction]);
+    }
+
+    return await txBuilder.transaction();
+  }
+
+  private async createExitTx() {
+    let destination = await this.poolInfo.tokenMint.getAssociatedTokenAddress(
+      this.wallet.publicKey
+    );
+    let preInstruction: anchor.web3.TransactionInstruction | undefined =
+      undefined;
+
+    if (
+      (await this.poolInfo.tokenMint.tryGetAssociatedTokenAccount(
+        this.wallet.publicKey
+      )) === null
+    ) {
+      preInstruction = Token.createAssociatedTokenAccountInstruction(
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+        TOKEN_PROGRAM_ID,
+        this.poolInfo.tokenMint.address,
+        destination,
+        this.wallet.publicKey,
+        this.wallet.publicKey
+      );
+    }
+
+    let txBuilder = this.veHoneyProgram.methods.exit().accounts({
+      payer: this.wallet.publicKey,
+      locker: this.governor.locker,
+      escrow: this.escrow,
+      escrowOwner: this.wallet.publicKey,
+      lockedTokens: await this.getLockedTokensAddress(),
+      destinationTokens: destination,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    });
+
+    if (preInstruction) {
+      txBuilder = txBuilder.preInstructions([preInstruction]);
+    }
+
+    return await txBuilder.transaction();
+  }
+
+  private async createCloseEscrowTx() {
+    let destination = await this.poolInfo.tokenMint.getAssociatedTokenAddress(
+      this.wallet.publicKey
+    );
+    let preInstruction: anchor.web3.TransactionInstruction | undefined =
+      undefined;
+
+    if (
+      (await this.poolInfo.tokenMint.tryGetAssociatedTokenAccount(
+        this.wallet.publicKey
+      )) === null
+    ) {
+      preInstruction = Token.createAssociatedTokenAccountInstruction(
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+        TOKEN_PROGRAM_ID,
+        this.poolInfo.tokenMint.address,
+        destination,
+        this.wallet.publicKey,
+        this.wallet.publicKey
+      );
+    }
+
+    let txBuilder = this.veHoneyProgram.methods.closeEscrow().accounts({
+      locker: this.governor.locker,
+      escrow: this.escrow,
+      escrowOwner: this.wallet.publicKey,
+      lockedTokens: await this.getLockedTokensAddress(),
+      destinationTokens: destination,
+      fundsReceiver: this.wallet.publicKey,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    });
+
+    if (preInstruction) {
+      txBuilder = txBuilder.preInstructions([preInstruction]);
+    }
+
+    return await txBuilder.transaction();
+  }
+
   public async deposit({ amount, owner }: DepositArgs) {
     const tx = await this.createDepositTx(amount, owner?.publicKey);
     const sig = await this.provider.sendAndConfirm(
@@ -255,6 +397,30 @@ export class MockUser {
 
   public async lock({ amount, duration }: LockArgs) {
     const tx = await this.createLockTx(amount, duration);
+    const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
+      skipPreflight: true,
+    });
+    return sig;
+  }
+
+  public async vest({ amount, duration }: LockArgs) {
+    const tx = await this.createVestTx(amount, duration);
+    const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
+      skipPreflight: true,
+    });
+    return sig;
+  }
+
+  public async exit() {
+    const tx = await this.createExitTx();
+    const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
+      skipPreflight: true,
+    });
+    return sig;
+  }
+
+  public async closeEscrow() {
+    const tx = await this.createCloseEscrowTx();
     const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
       skipPreflight: true,
     });

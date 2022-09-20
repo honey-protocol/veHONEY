@@ -77,7 +77,8 @@ pub mod stake {
         amount: u64,
         duration: i64,
     ) -> Result<()> {
-        ctx.accounts.process(amount, duration)?;
+        ctx.accounts
+            .process(amount, duration, ctx.remaining_accounts)?;
         Ok(())
     }
 }

@@ -83,7 +83,12 @@ impl<'info> Validate<'info> for Vest<'info> {
 }
 
 impl<'info> Vest<'info> {
-    pub fn process(&mut self, amount: u64, duration: i64) -> Result<()> {
+    pub fn process<'c>(
+        &mut self,
+        amount: u64,
+        duration: i64,
+        ra: &'c [AccountInfo<'info>],
+    ) -> Result<()> {
         invariant!(
             self.p_token_from.amount >= amount,
             ProtocolError::InsufficientFunds
@@ -133,7 +138,8 @@ impl<'info> Vest<'info> {
                     token_program: self.token_program.to_account_info(),
                 },
             )
-            .with_signer(&[&seeds[..]]),
+            .with_signer(&[&seeds[..]])
+            .with_remaining_accounts(ra.to_vec()),
             amount_to_mint,
             duration,
         )?;
