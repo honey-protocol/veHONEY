@@ -63,6 +63,13 @@ export type CheckEscrowArgs = {
   voteDelegate: PublicKey;
 };
 
+export type CheckProofArgs = {
+  account: any;
+  proofType: number;
+  proofAddress: PublicKey;
+  locker: PublicKey;
+};
+
 export function checkStakePool({
   poolInfo,
   version,
@@ -186,6 +193,17 @@ export function checkEscrow({
   checkBN(account.escrowEndsAt, escrowEndsAt, "escrowEndsAt");
   checkBN(account.receiptCount, receiptCount, "receiptCount");
   checkPublicKey(account.voteDelegate, voteDelegate, "voteDelegate");
+}
+
+export function checkProof({
+  account,
+  proofType,
+  proofAddress,
+  locker,
+}: CheckProofArgs) {
+  assert.strictEqual(account.proofType, proofType, "type");
+  checkPublicKey(account.proofAddress, proofAddress, "proofAddress");
+  checkPublicKey(account.locker, locker, "locker");
 }
 
 export function checkPublicKey(

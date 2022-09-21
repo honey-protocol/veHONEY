@@ -188,6 +188,35 @@ export class MockGovernor {
       .instruction();
   }
 
+  private async createAddProofIx(address: PublicKey) {
+    return await this.veHoneyProgram.methods
+      .addProof(1)
+      .accounts({
+        payer: this.wallet.publicKey,
+        locker: this.locker,
+        proof: await this.getProofAddress(address),
+        address,
+        governor: this.governor.governorKey,
+        smartWallet: this.smartWallet.key,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .instruction();
+  }
+
+  private async createRemoveProofIx(address: PublicKey) {
+    return await this.veHoneyProgram.methods
+      .removeProof()
+      .accounts({
+        payer: this.wallet.publicKey,
+        locker: this.locker,
+        proof: await this.getProofAddress(address),
+        address,
+        governor: this.governor.governorKey,
+        smartWallet: this.smartWallet.key,
+      })
+      .instruction();
+  }
+
   public static async create(args: MockGovernorArgs) {
     const governor = new MockGovernor(args);
     await governor.init();
@@ -236,6 +265,24 @@ export class MockGovernor {
     });
   }
 
+  public async addProof(address: PublicKey) {
+    const ix = await this.createAddProofIx(address);
+    return await this.executeTransactionBySmartWallet({
+      provider: this.governorSDK.provider,
+      smartWalletWrapper: this.smartWallet,
+      instructions: [ix],
+    });
+  }
+
+  public async removeProof(address: PublicKey) {
+    const ix = await this.createRemoveProofIx(address);
+    return await this.executeTransactionBySmartWallet({
+      provider: this.governorSDK.provider,
+      smartWalletWrapper: this.smartWallet,
+      instructions: [ix],
+    });
+  }
+
   public async fetchLocker() {
     return await this.veHoneyProgram.account.locker.fetchNullable(this.locker);
   }
@@ -249,6 +296,12 @@ export class MockGovernor {
     return await this.veHoneyProgram.account.whitelistEntry.fetchNullable(
       whitelistEntryAddress
     );
+  }
+
+  public async fetchProof(address: PublicKey) {
+    const proofAddress = await this.getProofAddress(address);
+
+    return await this.veHoneyProgram.account.proof.fetchNullable(proofAddress);
   }
 
   public async getLockerAddress() {
@@ -290,6 +343,18 @@ export class MockGovernor {
     return address;
   }
 
+  public async getProofAddress(proofFor: PublicKey) {
+    const [address] = await PublicKey.findProgramAddress(
+      [
+        Buffer.from(constants.PROOF_SEED),
+        this.locker.toBuffer(),
+        proofFor.toBuffer(),
+      ],
+      this.veHoneyProgram.programId
+    );
+    return address;
+  }
+
   private async executeTransactionBySmartWallet({
     provider,
     smartWalletWrapper,
@@ -321,6 +386,10 @@ export type LockerParams = {
   whitelistEnabled: boolean;
   multiplier: number;
   proposalActivationMinVotes: anchor.BN;
+  nftStakeDurationUnit: anchor.BN;
+  nftStakeBaseReward: anchor.BN;
+  nftStakeDurationCount: number;
+  nftRewardHalvingStartsAt: number;
 };
 
 export type GovernorParams = {

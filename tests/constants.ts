@@ -41,4 +41,8 @@ export const DEFAULT_LOCKER_PARAMS: LockerParams = {
   whitelistEnabled: true,
   multiplier: 1,
   proposalActivationMinVotes: new anchor.BN(10).muln(10 ** 6),
+  nftStakeDurationUnit: new anchor.BN(1),
+  nftStakeBaseReward: new anchor.BN(3_750_000_000),
+  nftStakeDurationCount: 10,
+  nftRewardHalvingStartsAt: 2,
 };

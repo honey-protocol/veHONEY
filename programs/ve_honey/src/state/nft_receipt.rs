@@ -1,4 +1,5 @@
 use crate::error::*;
+use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::pubkey::PUBKEY_BYTES;
 use vipers::*;
@@ -46,42 +47,27 @@ pub struct NftReceipt {
 impl NftReceipt {
     pub const LEN: usize = 8 + PUBKEY_BYTES + PUBKEY_BYTES + 8 + 8;
 
-    pub fn update_receipt(&mut self, now: i64) -> Result<u64> {
-        if now <= self.vest_started_at {
-            return Err(error!(ProtocolError::NotClaimable));
-        }
+    pub fn update_receipt(
+        &mut self,
+        locker: &mut Locker,
+        escrow: &mut Escrow,
+        claim_amount: u64,
+    ) -> Result<()> {
+        invariant!(claim_amount > 0, ProtocolError::InvariantViolated);
 
-        let amount_to_be_claimed = self.claimable_amount(now.min(self.vest_ends_at))?;
+        locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(claim_amount));
+        escrow.amount = unwrap_int!(escrow.amount.checked_sub(claim_amount));
 
-        let claimable_amount = unwrap_int!(amount_to_be_claimed.checked_sub(self.claimed_amount));
+        self.claimed_amount = unwrap_int!(self.claimed_amount.checked_add(claim_amount));
 
-        invariant!(claimable_amount > 0, ProtocolError::NotClaimable);
-
-        self.claimed_amount = amount_to_be_claimed;
-
-        Ok(claimable_amount)
+        Ok(())
     }
 
-    pub fn claimable_amount(&self, due: i64) -> Result<u64> {
-        let mut duration = unwrap_int!(due.checked_sub(self.vest_started_at));
-        let mut amount: u64 = 0;
-        let mut year: u8 = 0;
-        let mut halving_amount = BASE_REWARD_AMOUNT;
+    pub fn get_claim_amount_at(&self, locker: &LockerParams, timestamp: i64) -> Result<u64> {
+        let due = timestamp.min(self.vest_ends_at);
+        let duration = unwrap_int!(due.checked_sub(self.vest_started_at));
+        let reward_amount = locker.calculate_reward_amount(duration)?;
 
-        while duration - UNIT_VEST_DURATION >= 0 {
-            if year >= 2 {
-                halving_amount = unwrap_int!(halving_amount.checked_div(2));
-            }
-            amount = unwrap_int!(amount.checked_add(halving_amount));
-            duration = unwrap_int!(duration.checked_sub(UNIT_VEST_DURATION));
-            year += 1;
-        }
-
-        Ok(amount)
-    }
-
-    pub fn remaining_amount(&self) -> Result<u64> {
-        let total_claim = self.claimable_amount(self.vest_ends_at)?;
-        Ok(unwrap_int!(total_claim.checked_sub(self.claimed_amount)))
+        Ok(unwrap_int!(reward_amount.checked_sub(self.claimed_amount)))
     }
 }

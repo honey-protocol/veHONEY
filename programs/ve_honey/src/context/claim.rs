@@ -33,15 +33,11 @@ pub struct Claim<'info> {
 
 impl<'info> Claim<'info> {
     pub fn process(&mut self) -> Result<()> {
-        let claimable_amount = self
+        let claim_amount = self
             .nft_receipt
-            .update_receipt(Clock::get()?.unix_timestamp)?;
+            .get_claim_amount_at(&self.locker.params, Clock::get()?.unix_timestamp)?;
 
-        let escrow = &mut self.escrow;
-        let locker = &mut self.locker;
-
-        escrow.amount = unwrap_int!(escrow.amount.checked_sub(claimable_amount));
-        locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(claimable_amount));
+        invariant!(claim_amount > 0, ProtocolError::InvariantViolated);
 
         let seeds: &[&[&[u8]]] = escrow_seeds!(self.escrow);
 
@@ -55,8 +51,11 @@ impl<'info> Claim<'info> {
                 },
             )
             .with_signer(seeds),
-            claimable_amount,
+            claim_amount,
         )?;
+
+        self.nft_receipt
+            .update_receipt(&mut self.locker, &mut self.escrow, claim_amount)?;
 
         Ok(())
     }

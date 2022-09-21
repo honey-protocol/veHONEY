@@ -1,6 +1,7 @@
 use crate::state::*;
 use anchor_lang::{prelude::*, solana_program::pubkey::PUBKEY_BYTES};
 use num_traits::ToPrimitive;
+use vipers::unwrap_int;
 
 #[account]
 #[derive(Debug, Default)]
@@ -37,10 +38,18 @@ pub struct LockerParams {
     pub multiplier: u8,
     /// Minimum number of votes required to activate a proposal.
     pub proposal_activation_min_votes: u64,
+    /// NFT stake duration unit.
+    pub nft_stake_duration_unit: i64,
+    /// NFT stake base reward
+    pub nft_stake_base_reward: u64,
+    /// NFT stake duration count.
+    pub nft_stake_duration_count: u8,
+    /// First halving count.
+    pub nft_reward_halving_starts_at: u8,
 }
 
 impl LockerParams {
-    pub const LEN: usize = 8 + 8 + 1 + 1 + 8;
+    pub const LEN: usize = 8 + 8 + 1 + 1 + 8 + 8 + 8 + 1 + 1;
 
     pub fn calculate_voter_power(&self, escrow: &Escrow, now: i64) -> Option<u64> {
         if now == 0 {
@@ -69,5 +78,23 @@ impl LockerParams {
             .to_u64()?;
 
         Some(power)
+    }
+
+    pub fn calculate_reward_amount(&self, duration: i64) -> Result<u64> {
+        let mut duration = duration;
+        let mut amount: u64 = 0;
+        let mut count: u8 = 0;
+        let mut amount_per_unit = self.nft_stake_base_reward;
+
+        while duration - self.nft_stake_duration_unit >= 0 {
+            if count >= self.nft_reward_halving_starts_at {
+                amount_per_unit = unwrap_int!(amount_per_unit.checked_div(2));
+            }
+            amount = unwrap_int!(amount.checked_add(amount_per_unit));
+            duration = unwrap_int!(duration.checked_sub(self.nft_stake_duration_unit));
+            count += 1;
+        }
+
+        Ok(amount)
     }
 }

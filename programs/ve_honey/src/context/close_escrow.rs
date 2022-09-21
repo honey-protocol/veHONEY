@@ -36,6 +36,7 @@ impl<'info> CloseEscrow<'info> {
         self.close_receipts(ra)?;
 
         let seeds: &[&[&[u8]]] = escrow_seeds!(self.escrow);
+
         if self.escrow.amount > 0 {
             token::transfer(
                 CpiContext::new(
@@ -96,10 +97,10 @@ impl<'info> CloseEscrow<'info> {
             );
             receipt_ids.push(receipt.receipt_id);
 
-            invariant!(
-                receipt.remaining_amount()? == 0,
-                ProtocolError::InvariantViolated
-            );
+            let remaining_amount =
+                receipt.get_claim_amount_at(&self.locker.params, receipt.vest_ends_at)?;
+
+            invariant!(remaining_amount == 0, ProtocolError::InvariantViolated);
             receipt.close(self.funds_receiver.to_account_info())?;
         }
 
@@ -123,6 +124,11 @@ impl<'info> Validate<'info> for CloseEscrow<'info> {
         assert_keys_neq!(self.locked_tokens, self.destination_tokens);
         assert_keys_eq!(self.locked_tokens.mint, self.destination_tokens.mint);
         let now = Clock::get()?.unix_timestamp;
+        msg!(
+            "now: {}; escrow_ends_at: {}",
+            now,
+            self.escrow.escrow_ends_at
+        );
         invariant!(
             self.escrow.escrow_ends_at < now,
             ProtocolError::EscrowNotEnded

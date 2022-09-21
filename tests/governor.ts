@@ -7,6 +7,7 @@ import { MockMint } from "./mock/mint";
 import * as constants from "./constants";
 import {
   checkLocker,
+  checkProof,
   checkTokenAccount,
   checkWhitelistEntry,
 } from "./utils/check";
@@ -53,6 +54,10 @@ describe("governor in locker", () => {
       whitelistEnabled: false,
       multiplier: 3,
       proposalActivationMinVotes: new anchor.BN(0),
+      nftStakeDurationUnit: new anchor.BN(1),
+      nftStakeBaseReward: new anchor.BN(3_750_000_000),
+      nftStakeDurationCount: 10,
+      nftRewardHalvingStartsAt: 2,
     };
 
     await governor.setLockerParams({ ...newParams });
@@ -101,5 +106,25 @@ describe("governor in locker", () => {
     await governor.revokeProgramLockPrivilege(whitelistEntry);
     whitelistEntryAccount = await governor.fetchWhitelistEntry();
     assert.strictEqual(whitelistEntryAccount, null);
+  });
+
+  it("governor can add/remove proof", async () => {
+    const proofAddress = anchor.web3.Keypair.generate();
+    await governor.addProof(proofAddress.publicKey);
+
+    let proofAccount = await governor.fetchProof(proofAddress.publicKey);
+
+    checkProof({
+      account: proofAccount,
+      proofType: 1,
+      proofAddress: proofAddress.publicKey,
+      locker: governor.locker,
+    });
+
+    await governor.removeProof(proofAddress.publicKey);
+
+    proofAccount = await governor.fetchProof(proofAddress.publicKey);
+
+    assert.strictEqual(proofAccount, null);
   });
 });

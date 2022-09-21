@@ -34,22 +34,22 @@ impl<'info> Exit<'info> {
     pub fn process(&mut self, ra: &[AccountInfo]) -> Result<()> {
         let unlock_amount = self.check_receipts(ra)?;
 
+        invariant!(unlock_amount > 0, ProtocolError::InvariantViolated);
+
         let seeds: &[&[&[u8]]] = escrow_seeds!(self.escrow);
 
-        if unlock_amount > 0 {
-            token::transfer(
-                CpiContext::new(
-                    self.token_program.to_account_info(),
-                    token::Transfer {
-                        from: self.locked_tokens.to_account_info(),
-                        to: self.destination_tokens.to_account_info(),
-                        authority: self.escrow.to_account_info(),
-                    },
-                )
-                .with_signer(seeds),
-                unlock_amount,
-            )?;
-        }
+        token::transfer(
+            CpiContext::new(
+                self.token_program.to_account_info(),
+                token::Transfer {
+                    from: self.locked_tokens.to_account_info(),
+                    to: self.destination_tokens.to_account_info(),
+                    authority: self.escrow.to_account_info(),
+                },
+            )
+            .with_signer(seeds),
+            unlock_amount,
+        )?;
 
         let escrow = &mut self.escrow;
         let locker = &mut self.locker;
@@ -76,7 +76,7 @@ impl<'info> Exit<'info> {
             ProtocolError::InvalidRemainingAccounts
         );
 
-        let mut remaining_rewards_amount: u64 = 0;
+        let mut remaining_amount: u64 = 0;
         let accounts_iter = &mut ra.iter();
         let mut receipt_ids: Vec<u64> = vec![];
         for _ in 0..receipt_count {
@@ -90,15 +90,14 @@ impl<'info> Exit<'info> {
             assert_keys_eq!(receipt.locker, self.locker, ProtocolError::InvalidLocker);
             invariant!(!receipt_ids.contains(&receipt.receipt_id));
             receipt_ids.push(receipt.receipt_id);
-            let remaining_amount = receipt.remaining_amount()?;
-            remaining_rewards_amount =
-                unwrap_int!(remaining_rewards_amount.checked_add(remaining_amount));
+            remaining_amount = unwrap_int!(remaining_amount.checked_add(
+                receipt.get_claim_amount_at(&self.locker.params, receipt.vest_ends_at)?
+            ))
         }
 
-        Ok(unwrap_int!(self
-            .escrow
-            .amount
-            .checked_sub(remaining_rewards_amount)))
+        let unlock_amount = unwrap_int!(self.escrow.amount.checked_sub(remaining_amount));
+
+        Ok(unlock_amount)
     }
 }
 
