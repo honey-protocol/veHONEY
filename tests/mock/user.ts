@@ -6,6 +6,11 @@ import {
   Token,
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import {
+  Metadata,
+  Edition,
+  MetadataProgram,
+} from "@metaplex-foundation/mpl-token-metadata";
 
 import { Stake } from "../../target/types/stake";
 import { VeHoney } from "../../target/types/ve_honey";
@@ -13,6 +18,8 @@ import { MockStakePool } from "./stakePool";
 import { MockWallet } from "./wallet";
 import * as constants from "../constants";
 import { MockGovernor } from "./governor";
+import { MockNFT } from "./nft";
+import { MockMint } from "./mint";
 
 export class MockUser {
   provider: AnchorProvider;
@@ -54,6 +61,15 @@ export class MockUser {
   poolInfo: MockStakePool;
   governor: MockGovernor;
 
+  get tokenMint(): MockMint | undefined {
+    if (this.poolInfo) {
+      return this.poolInfo.tokenMint;
+    } else if (this.governor) {
+      return this.governor.tokenMint;
+    }
+    return undefined;
+  }
+
   constructor({ provider, poolInfo, governor }: MockUserArgs) {
     this.provider = provider;
     this.stakeProgram = anchor.workspace.Stake as Program<Stake>;
@@ -64,7 +80,9 @@ export class MockUser {
 
   public async init() {
     this._wallet = await MockWallet.createWithBalance(this.provider, 1);
-    this._poolUser = await this.getPoolUserAddress();
+    if (this.poolInfo) {
+      this._poolUser = await this.getPoolUserAddress();
+    }
     if (this.governor) {
       this._escrow = await this.getEscrowAddress();
       this._voteDelegate = this._wallet;
@@ -167,21 +185,17 @@ export class MockUser {
   }
 
   private async createLockTx(amount: anchor.BN, duration: anchor.BN) {
-    let lockedTokens = await this.poolInfo.tokenMint.getAssociatedTokenAddress(
-      this.escrow
-    );
+    let lockedTokens = await this.getLockedTokensAddress();
     let preInstruction: anchor.web3.TransactionInstruction | undefined =
       undefined;
 
     if (
-      (await this.poolInfo.tokenMint.tryGetAssociatedTokenAccount(
-        this.escrow
-      )) === null
+      (await this.tokenMint.tryGetAssociatedTokenAccount(this.escrow)) === null
     ) {
       preInstruction = Token.createAssociatedTokenAccountInstruction(
         ASSOCIATED_TOKEN_PROGRAM_ID,
         TOKEN_PROGRAM_ID,
-        this.poolInfo.tokenMint.address,
+        this.tokenMint.address,
         lockedTokens,
         this.escrow,
         this.wallet.publicKey
@@ -210,16 +224,14 @@ export class MockUser {
   }
 
   private async createVestTx(pTokenAmount: anchor.BN, duration: anchor.BN) {
-    let lockedTokens = await this.poolInfo.tokenMint.getAssociatedTokenAddress(
+    let lockedTokens = await this.tokenMint.getAssociatedTokenAddress(
       this.escrow
     );
     let preInstruction: anchor.web3.TransactionInstruction | undefined =
       undefined;
 
     if (
-      (await this.poolInfo.tokenMint.tryGetAssociatedTokenAccount(
-        this.escrow
-      )) === null
+      (await this.tokenMint.tryGetAssociatedTokenAccount(this.escrow)) === null
     ) {
       preInstruction = Token.createAssociatedTokenAccountInstruction(
         ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -274,14 +286,14 @@ export class MockUser {
   }
 
   private async createExitTx() {
-    let destination = await this.poolInfo.tokenMint.getAssociatedTokenAddress(
+    let destination = await this.tokenMint.getAssociatedTokenAddress(
       this.wallet.publicKey
     );
     let preInstruction: anchor.web3.TransactionInstruction | undefined =
       undefined;
 
     if (
-      (await this.poolInfo.tokenMint.tryGetAssociatedTokenAccount(
+      (await this.tokenMint.tryGetAssociatedTokenAccount(
         this.wallet.publicKey
       )) === null
     ) {
@@ -313,14 +325,14 @@ export class MockUser {
   }
 
   private async createCloseEscrowTx() {
-    let destination = await this.poolInfo.tokenMint.getAssociatedTokenAddress(
+    let destination = await this.tokenMint.getAssociatedTokenAddress(
       this.wallet.publicKey
     );
     let preInstruction: anchor.web3.TransactionInstruction | undefined =
       undefined;
 
     if (
-      (await this.poolInfo.tokenMint.tryGetAssociatedTokenAccount(
+      (await this.tokenMint.tryGetAssociatedTokenAccount(
         this.wallet.publicKey
       )) === null
     ) {
@@ -349,6 +361,90 @@ export class MockUser {
     }
 
     return await txBuilder.transaction();
+  }
+
+  private async createLockNftTx({ receiptId, duration, nft }: LockNftArgs) {
+    const creator = new PublicKey(
+      nft.metadata.data.data.creators.at(0).address
+    );
+
+    const proof = await this.governor.getProofAddress(creator);
+    const nftMint = nft.mint.address;
+    const nftMetadata = await Metadata.getPDA(nftMint);
+    const nftEdition = await Edition.getPDA(nftMint);
+    const remainingAccounts = [
+      {
+        pubkey: proof,
+        isSigner: false,
+        isWritable: false,
+      },
+      {
+        pubkey: MetadataProgram.PUBKEY,
+        isSigner: false,
+        isWritable: false,
+      },
+      {
+        pubkey: nftMetadata,
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: nftMint,
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: nftEdition,
+        isSigner: false,
+        isWritable: true,
+      },
+    ];
+
+    if (nft.metadata.data.collection && nft.metadata.data.collection.verified) {
+      remainingAccounts.push({
+        pubkey: new PublicKey(nft.metadata.data.collection.key),
+        isSigner: false,
+        isWritable: true,
+      });
+    }
+
+    let lockedTokens = await this.getLockedTokensAddress();
+    let preInstruction: anchor.web3.TransactionInstruction | undefined =
+      undefined;
+
+    if (
+      (await this.tokenMint.tryGetAssociatedTokenAccount(this.escrow)) === null
+    ) {
+      preInstruction = Token.createAssociatedTokenAccountInstruction(
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+        TOKEN_PROGRAM_ID,
+        this.tokenMint.address,
+        lockedTokens,
+        this.escrow,
+        this.wallet.publicKey
+      );
+    }
+
+    return await this.veHoneyProgram.methods
+      .lockNft(receiptId, duration)
+      .accounts({
+        payer: this.wallet.publicKey,
+        base: this.governor.lockerBase.publicKey,
+        locker: this.governor.locker,
+        receipt: await this.getReceiptAddress(receiptId),
+        escrow: this.escrow,
+        lockedTokens: await this.getLockedTokensAddress(),
+        lockerTreasury: await this.governor.getTreasuryAddress(),
+        owner: this.wallet.publicKey,
+        nftSource: await nft.mint.getAssociatedTokenAddress(
+          this.wallet.publicKey
+        ),
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .preInstructions([preInstruction])
+      .remainingAccounts([...remainingAccounts])
+      .transaction();
   }
 
   public async deposit({ amount, owner }: DepositArgs) {
@@ -403,6 +499,14 @@ export class MockUser {
     return sig;
   }
 
+  public async lockNft({ receiptId, duration, nft }: LockNftArgs) {
+    const tx = await this.createLockNftTx({ receiptId, duration, nft });
+    const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
+      skipPreflight: true,
+    });
+    return sig;
+  }
+
   public async vest({ amount, duration }: LockArgs) {
     const tx = await this.createVestTx(amount, duration);
     const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
@@ -430,10 +534,9 @@ export class MockUser {
   public static async create(args: MockUserArgs) {
     const user = new MockUser(args);
     await user.init();
-    const tx = new anchor.web3.Transaction().add(
-      await user.createInitPoolUserTx()
-    );
-    if (user.governor !== undefined) tx.add(await user.createInitEscrowTx());
+    const tx = new anchor.web3.Transaction();
+    if (user.poolInfo) tx.add(await user.createInitPoolUserTx());
+    if (user.governor) tx.add(await user.createInitEscrowTx());
     await user.provider.sendAndConfirm(tx, [user.wallet.payer], {
       skipPreflight: true,
     });
@@ -465,8 +568,24 @@ export class MockUser {
     return address;
   }
 
+  public async getReceiptAddress(receiptId: anchor.BN) {
+    const [address] = await PublicKey.findProgramAddress(
+      [
+        Buffer.from(constants.NFT_RECEIPT_SEED),
+        this.governor.locker.toBuffer(),
+        this.wallet.publicKey.toBuffer(),
+        receiptId.toBuffer("le", 8),
+      ],
+      this.veHoneyProgram.programId
+    );
+    return address;
+  }
+
   public async getLockedTokensAddress() {
-    return await this.poolInfo.tokenMint.getAssociatedTokenAddress(this.escrow);
+    if (this.tokenMint) {
+      return await this.tokenMint.getAssociatedTokenAddress(this.escrow);
+    }
+    return null;
   }
 
   public async fetch() {
@@ -482,7 +601,7 @@ export class MockUser {
 
 export type MockUserArgs = {
   provider: AnchorProvider;
-  poolInfo: MockStakePool;
+  poolInfo?: MockStakePool;
   governor?: MockGovernor;
 };
 
@@ -503,4 +622,10 @@ export type SetVoteDelegateArgs = {
 export type LockArgs = {
   amount: anchor.BN;
   duration: anchor.BN;
+};
+
+export type LockNftArgs = {
+  receiptId: anchor.BN;
+  duration: anchor.BN;
+  nft: MockNFT;
 };

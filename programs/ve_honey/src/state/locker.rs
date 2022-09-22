@@ -97,4 +97,14 @@ impl LockerParams {
 
         Ok(amount)
     }
+
+    pub fn calculate_nft_max_stake_duration(&self) -> Result<i64> {
+        Ok(unwrap_int!(self
+            .nft_stake_duration_unit
+            .checked_mul(self.nft_stake_duration_count as i64)))
+    }
+
+    pub fn calculate_max_reward_amount(&self) -> Result<u64> {
+        self.calculate_reward_amount(self.calculate_nft_max_stake_duration()?)
+    }
 }

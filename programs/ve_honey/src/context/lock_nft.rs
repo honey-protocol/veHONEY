@@ -57,7 +57,7 @@ pub struct LockNft<'info> {
 
 impl<'info> LockNft<'info> {
     pub fn process(&mut self, receipt_id: u64, duration: i64) -> Result<()> {
-        if duration < MAX_VEST_DURATION {
+        if duration < self.locker.params.calculate_nft_max_stake_duration()? {
             return Err(error!(ProtocolError::VestingDurationExceeded));
         }
 
@@ -80,16 +80,22 @@ impl<'info> LockNft<'info> {
             return Err(error!(ProtocolError::RefreshCannotShorten));
         }
 
-        let seeds = &[LOCKER_SEED.as_bytes(), &self.base.key().to_bytes()[..32]];
+        let seeds = &[
+            LOCKER_SEED.as_bytes(),
+            &self.base.key().to_bytes()[..32],
+            &[self.locker.bump],
+        ];
 
-        token::transfer(self.to_transfer_context(&[&seeds[..]]), MAX_REWARD_AMOUNT)?;
+        let max_reward_amount = self.locker.params.calculate_max_reward_amount()?;
+
+        token::transfer(self.to_transfer_context(&[&seeds[..]]), max_reward_amount)?;
 
         let locker = &mut self.locker;
         let escrow = &mut self.escrow;
 
         escrow.update_lock_event(
             locker,
-            MAX_REWARD_AMOUNT,
+            max_reward_amount,
             next_escrow_started_at,
             next_escrow_ends_at,
             true,
@@ -158,17 +164,15 @@ fn assert_valid_proof(
 }
 
 fn check_accounts(ctx: &Context<LockNft>) -> Result<()> {
-    if ctx.remaining_accounts.len() < 6 {
+    if ctx.remaining_accounts.len() < 5 {
         return Err(error!(ProtocolError::InvalidRemainingAccounts));
     }
 
     let accounts_iter = &mut ctx.remaining_accounts.iter();
+    let proof_info = next_account_info(accounts_iter)?;
+    let metaplex_metadata_program = next_account_info(accounts_iter)?;
     let nft_metadata = next_account_info(accounts_iter)?;
     let nft_mint = next_account_info(accounts_iter)?;
-    let _nft_edition = next_account_info(accounts_iter)?;
-    let _nft_collection_metadata = next_account_info(accounts_iter)?;
-    let metaplex_metadata_program = next_account_info(accounts_iter)?;
-    let proof_info = next_account_info(accounts_iter)?;
 
     if let Ok(()) = assert_valid_proof(
         proof_info,
@@ -204,11 +208,29 @@ fn check_accounts(ctx: &Context<LockNft>) -> Result<()> {
 
 fn burn_nft<'info>(ctx: &Context<'_, '_, '_, 'info, LockNft<'info>>) -> Result<()> {
     let accounts_iter = &mut ctx.remaining_accounts.iter();
+    let _proof_info = next_account_info(accounts_iter)?;
+    let metaplex_metadata_program = next_account_info(accounts_iter)?;
     let nft_metadata = next_account_info(accounts_iter)?;
     let nft_mint = next_account_info(accounts_iter)?;
     let nft_edition = next_account_info(accounts_iter)?;
-    let nft_collection_metadata = next_account_info(accounts_iter)?;
-    let metaplex_metadata_program = next_account_info(accounts_iter)?;
+
+    let mut account_infos: Vec<AccountInfo> = vec![
+        metaplex_metadata_program.to_account_info(),
+        nft_metadata.to_account_info(),
+        ctx.accounts.owner.to_account_info(),
+        nft_mint.to_account_info(),
+        ctx.accounts.nft_source.to_account_info(),
+        nft_edition.to_account_info(),
+        ctx.accounts.token_program.to_account_info(),
+    ];
+
+    let nft_collection_metadata = if ctx.remaining_accounts.len() == 6 {
+        let nft_collection_metadata_info = next_account_info(accounts_iter)?;
+        account_infos.append(&mut vec![nft_collection_metadata_info.to_account_info()]);
+        Some(nft_collection_metadata_info.key())
+    } else {
+        None
+    };
 
     invoke(
         &mpl_token_metadata::instruction::burn_nft(
@@ -219,18 +241,9 @@ fn burn_nft<'info>(ctx: &Context<'_, '_, '_, 'info, LockNft<'info>>) -> Result<(
             ctx.accounts.nft_source.key(),
             nft_edition.key(),
             ctx.accounts.token_program.key(),
-            Some(nft_collection_metadata.key()),
+            nft_collection_metadata,
         ),
-        &[
-            metaplex_metadata_program.to_account_info(),
-            nft_metadata.to_account_info(),
-            ctx.accounts.owner.to_account_info(),
-            nft_mint.to_account_info(),
-            ctx.accounts.nft_source.to_account_info(),
-            nft_edition.to_account_info(),
-            ctx.accounts.token_program.to_account_info(),
-            nft_collection_metadata.to_account_info(),
-        ],
+        account_infos.as_slice(),
     )?;
 
     Ok(())

@@ -132,6 +132,18 @@ export class MockMint {
     );
   }
 
+  public async mintToAddress(
+    address: anchor.web3.PublicKey,
+    amount: anchor.BN
+  ) {
+    return await this.token.mintTo(
+      address,
+      this.payer,
+      [],
+      new u64(amount.toBuffer("be", 8))
+    );
+  }
+
   public async burn(wallet: Wallet, amount: number | anchor.BN): Promise<void> {
     const account = await this.getAssociatedTokenAccount(wallet.publicKey);
     return await this.token.burn(account.address, wallet.payer, [], amount);

@@ -378,6 +378,24 @@ export class MockGovernor {
 
     return transactionKey;
   }
+
+  public async calcRewardAmount() {
+    const locker = await this.fetchLocker();
+
+    let count = 0;
+    let amount = new anchor.BN(0);
+    let amountPerUnit = locker.params.nftStakeBaseReward;
+
+    while (count < locker.params.nftStakeDurationCount) {
+      if (count >= locker.params.nftRewardHalvingStartsAt) {
+        amountPerUnit = amountPerUnit.divn(2);
+      }
+      amount = amount.add(amountPerUnit);
+      count++;
+    }
+
+    return amount;
+  }
 }
 
 export type LockerParams = {

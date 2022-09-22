@@ -45,7 +45,7 @@ pub struct NftReceipt {
 }
 
 impl NftReceipt {
-    pub const LEN: usize = 8 + PUBKEY_BYTES + PUBKEY_BYTES + 8 + 8;
+    pub const LEN: usize = 8 + PUBKEY_BYTES + PUBKEY_BYTES + 8 + 8 + 8;
 
     pub fn update_receipt(
         &mut self,
