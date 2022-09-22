@@ -13,392 +13,392 @@ import { checkEscrow, checkLocker, checkTokenAccount } from "./utils/check";
 import { sleep } from "./utils/util";
 import { MockNFT } from "./mock/nft";
 
-// describe("locked voters", () => {
-//   const provider = AnchorProvider.env();
+describe("locked voters", () => {
+  const provider = AnchorProvider.env();
 
-//   let pTokenMint: MockMint;
-//   let tokenMint: MockMint;
-//   let poolOwner: MockWallet;
-//   let stakePool: MockStakePool;
-//   let governor: MockGovernor;
+  let pTokenMint: MockMint;
+  let tokenMint: MockMint;
+  let poolOwner: MockWallet;
+  let stakePool: MockStakePool;
+  let governor: MockGovernor;
 
-//   before(async () => {
-//     await initEnv({
-//       startsAt: new anchor.BN(Math.floor(Date.now() / 1000) + 1),
-//       claimPeriodUnit: new anchor.BN(1),
-//       maxClaimCount: 21,
-//     });
-//   });
+  before(async () => {
+    await initEnv({
+      startsAt: new anchor.BN(Math.floor(Date.now() / 1000) + 1),
+      claimPeriodUnit: new anchor.BN(1),
+      maxClaimCount: 21,
+    });
+  });
 
-//   async function initEnv(params: StakePoolParams) {
-//     [pTokenMint, tokenMint, poolOwner] = await Promise.all([
-//       MockMint.create(provider, 6),
-//       MockMint.create(provider, 6),
-//       MockWallet.createWithBalance(provider, 1),
-//     ]);
+  async function initEnv(params: StakePoolParams) {
+    [pTokenMint, tokenMint, poolOwner] = await Promise.all([
+      MockMint.create(provider, 6),
+      MockMint.create(provider, 6),
+      MockWallet.createWithBalance(provider, 1),
+    ]);
 
-//     stakePool = await MockStakePool.create({
-//       provider,
-//       version: constants.STAKE_POOL_VERSION,
-//       pTokenMint,
-//       tokenMint,
-//       owner: poolOwner,
-//       params,
-//     });
+    stakePool = await MockStakePool.create({
+      provider,
+      version: constants.STAKE_POOL_VERSION,
+      pTokenMint,
+      tokenMint,
+      owner: poolOwner,
+      params,
+    });
 
-//     governor = await MockGovernor.create({
-//       provider,
-//       tokenMint,
-//       governorParams: {
-//         ...constants.DEFAULT_GOVERNOR_PARAMS,
-//       },
-//       lockerParams: {
-//         ...constants.DEFAULT_LOCKER_PARAMS,
-//       },
-//     });
-//   }
+    governor = await MockGovernor.create({
+      provider,
+      tokenMint,
+      governorParams: {
+        ...constants.DEFAULT_GOVERNOR_PARAMS,
+      },
+      lockerParams: {
+        ...constants.DEFAULT_LOCKER_PARAMS,
+      },
+    });
+  }
 
-//   it("escrow can be initialized", async () => {
-//     const user = await MockUser.create({
-//       provider,
-//       poolInfo: stakePool,
-//       governor,
-//     });
+  it("escrow can be initialized", async () => {
+    const user = await MockUser.create({
+      provider,
+      poolInfo: stakePool,
+      governor,
+    });
 
-//     const escrowAccount = await user.fetchEscrow();
+    const escrowAccount = await user.fetchEscrow();
 
-//     checkEscrow({
-//       account: escrowAccount,
-//       locker: governor.locker,
-//       owner: user.wallet.publicKey,
-//       tokens: await user.getLockedTokensAddress(),
-//       amount: new anchor.BN(0),
-//       escrowStartedAt: new anchor.BN(0),
-//       escrowEndsAt: new anchor.BN(0),
-//       receiptCount: new anchor.BN(0),
-//       voteDelegate: user.wallet.publicKey,
-//     });
-//   });
+    checkEscrow({
+      account: escrowAccount,
+      locker: governor.locker,
+      owner: user.wallet.publicKey,
+      tokens: await user.getLockedTokensAddress(),
+      amount: new anchor.BN(0),
+      escrowStartedAt: new anchor.BN(0),
+      escrowEndsAt: new anchor.BN(0),
+      receiptCount: new anchor.BN(0),
+      voteDelegate: user.wallet.publicKey,
+    });
+  });
 
-//   it("invalid escrow owner cannot change vote delegate", async () => {
-//     const user = await MockUser.create({
-//       provider,
-//       poolInfo: stakePool,
-//       governor,
-//     });
-//     const [newDelegate, invalidOwner] = await Promise.all([
-//       MockWallet.createWithBalance(provider, 1),
-//       MockWallet.createWithBalance(provider, 1),
-//     ]);
-//     const setVoteDelegateWithFail = user.setVoteDelegate({
-//       newDelegate,
-//       owner: invalidOwner,
-//     });
+  it("invalid escrow owner cannot change vote delegate", async () => {
+    const user = await MockUser.create({
+      provider,
+      poolInfo: stakePool,
+      governor,
+    });
+    const [newDelegate, invalidOwner] = await Promise.all([
+      MockWallet.createWithBalance(provider, 1),
+      MockWallet.createWithBalance(provider, 1),
+    ]);
+    const setVoteDelegateWithFail = user.setVoteDelegate({
+      newDelegate,
+      owner: invalidOwner,
+    });
 
-//     await expect(setVoteDelegateWithFail).to.eventually.be.rejectedWith(
-//       'failed ({"err":{"InstructionError":[0,{"Custom":7002}]}})'
-//     );
-//   });
+    await expect(setVoteDelegateWithFail).to.eventually.be.rejectedWith(
+      'failed ({"err":{"InstructionError":[0,{"Custom":7002}]}})'
+    );
+  });
 
-//   it("escrow owner can change vote delegate", async () => {
-//     const user = await MockUser.create({
-//       provider,
-//       poolInfo: stakePool,
-//       governor,
-//     });
-//     const newDelegate = await MockWallet.createWithBalance(provider, 1);
-//     await user.setVoteDelegate({ newDelegate });
-//     const escrowAccount = await user.fetchEscrow();
+  it("escrow owner can change vote delegate", async () => {
+    const user = await MockUser.create({
+      provider,
+      poolInfo: stakePool,
+      governor,
+    });
+    const newDelegate = await MockWallet.createWithBalance(provider, 1);
+    await user.setVoteDelegate({ newDelegate });
+    const escrowAccount = await user.fetchEscrow();
 
-//     checkEscrow({
-//       account: escrowAccount,
-//       locker: governor.locker,
-//       owner: user.wallet.publicKey,
-//       tokens: await user.getLockedTokensAddress(),
-//       amount: new anchor.BN(0),
-//       escrowStartedAt: new anchor.BN(0),
-//       escrowEndsAt: new anchor.BN(0),
-//       receiptCount: new anchor.BN(0),
-//       voteDelegate: user.voteDelegate.publicKey,
-//     });
-//   });
+    checkEscrow({
+      account: escrowAccount,
+      locker: governor.locker,
+      owner: user.wallet.publicKey,
+      tokens: await user.getLockedTokensAddress(),
+      amount: new anchor.BN(0),
+      escrowStartedAt: new anchor.BN(0),
+      escrowEndsAt: new anchor.BN(0),
+      receiptCount: new anchor.BN(0),
+      voteDelegate: user.voteDelegate.publicKey,
+    });
+  });
 
-//   it("direct-lock works while whitelistEnabled is not set", async () => {
-//     await governor.setLockerParams({
-//       ...constants.DEFAULT_LOCKER_PARAMS,
-//       whitelistEnabled: false,
-//     });
-//     const user = await MockUser.create({
-//       provider,
-//       poolInfo: stakePool,
-//       governor,
-//     });
-//     const lockAmount = new anchor.BN(10_000_000);
-//     await tokenMint.mintTo(user.wallet, lockAmount);
-//     await user.lock({ amount: lockAmount, duration: new anchor.BN(5) });
+  it("direct-lock works while whitelistEnabled is not set", async () => {
+    await governor.setLockerParams({
+      ...constants.DEFAULT_LOCKER_PARAMS,
+      whitelistEnabled: false,
+    });
+    const user = await MockUser.create({
+      provider,
+      poolInfo: stakePool,
+      governor,
+    });
+    const lockAmount = new anchor.BN(10_000_000);
+    await tokenMint.mintTo(user.wallet, lockAmount);
+    await user.lock({ amount: lockAmount, duration: new anchor.BN(5) });
 
-//     const lockedTokensAccount = await tokenMint.tryGetAssociatedTokenAccount(
-//       user.escrow
-//     );
+    const lockedTokensAccount = await tokenMint.tryGetAssociatedTokenAccount(
+      user.escrow
+    );
 
-//     checkTokenAccount({
-//       account: lockedTokensAccount,
-//       mint: tokenMint.address,
-//       amount: lockAmount,
-//     });
-//   });
+    checkTokenAccount({
+      account: lockedTokensAccount,
+      mint: tokenMint.address,
+      amount: lockAmount,
+    });
+  });
 
-//   it("duration must be in range from min-max stake duration", async () => {
-//     const minStakeDuration = new anchor.BN(5);
-//     const maxStakeDuration = new anchor.BN(15);
-//     await governor.setLockerParams({
-//       ...constants.DEFAULT_LOCKER_PARAMS,
-//       whitelistEnabled: false,
-//       minStakeDuration,
-//       maxStakeDuration,
-//     });
-//     const user = await MockUser.create({
-//       provider,
-//       poolInfo: stakePool,
-//       governor,
-//     });
-//     const lockAmount = new anchor.BN(10_000_000);
-//     await tokenMint.mintTo(user.wallet, lockAmount);
-//     let lockWithFail = user.lock({
-//       amount: lockAmount,
-//       duration: minStakeDuration.subn(1),
-//     });
+  it("duration must be in range from min-max stake duration", async () => {
+    const minStakeDuration = new anchor.BN(5);
+    const maxStakeDuration = new anchor.BN(15);
+    await governor.setLockerParams({
+      ...constants.DEFAULT_LOCKER_PARAMS,
+      whitelistEnabled: false,
+      minStakeDuration,
+      maxStakeDuration,
+    });
+    const user = await MockUser.create({
+      provider,
+      poolInfo: stakePool,
+      governor,
+    });
+    const lockAmount = new anchor.BN(10_000_000);
+    await tokenMint.mintTo(user.wallet, lockAmount);
+    let lockWithFail = user.lock({
+      amount: lockAmount,
+      duration: minStakeDuration.subn(1),
+    });
 
-//     await expect(lockWithFail).to.eventually.be.rejectedWith(
-//       'failed ({"err":{"InstructionError":[1,{"Custom":7104}]}})'
-//     );
+    await expect(lockWithFail).to.eventually.be.rejectedWith(
+      'failed ({"err":{"InstructionError":[1,{"Custom":7104}]}})'
+    );
 
-//     lockWithFail = user.lock({
-//       amount: lockAmount,
-//       duration: maxStakeDuration.addn(1),
-//     });
+    lockWithFail = user.lock({
+      amount: lockAmount,
+      duration: maxStakeDuration.addn(1),
+    });
 
-//     await expect(lockWithFail).to.eventually.be.rejectedWith(
-//       'failed ({"err":{"InstructionError":[1,{"Custom":7105}]}})'
-//     );
-//   });
+    await expect(lockWithFail).to.eventually.be.rejectedWith(
+      'failed ({"err":{"InstructionError":[1,{"Custom":7105}]}})'
+    );
+  });
 
-//   it("refresh duration cannot shorten than before", async () => {
-//     const minStakeDuration = new anchor.BN(10);
-//     const maxStakeDuration = new anchor.BN(100);
-//     await governor.setLockerParams({
-//       ...constants.DEFAULT_LOCKER_PARAMS,
-//       whitelistEnabled: false,
-//       minStakeDuration,
-//       maxStakeDuration,
-//     });
-//     const user = await MockUser.create({
-//       provider,
-//       poolInfo: stakePool,
-//       governor,
-//     });
-//     const lockAmount = new anchor.BN(10_000_000);
-//     await tokenMint.mintTo(user.wallet, lockAmount);
-//     await user.lock({
-//       amount: lockAmount.divn(2),
-//       duration: new anchor.BN(30),
-//     });
+  it("refresh duration cannot shorten than before", async () => {
+    const minStakeDuration = new anchor.BN(10);
+    const maxStakeDuration = new anchor.BN(100);
+    await governor.setLockerParams({
+      ...constants.DEFAULT_LOCKER_PARAMS,
+      whitelistEnabled: false,
+      minStakeDuration,
+      maxStakeDuration,
+    });
+    const user = await MockUser.create({
+      provider,
+      poolInfo: stakePool,
+      governor,
+    });
+    const lockAmount = new anchor.BN(10_000_000);
+    await tokenMint.mintTo(user.wallet, lockAmount);
+    await user.lock({
+      amount: lockAmount.divn(2),
+      duration: new anchor.BN(30),
+    });
 
-//     await sleep(3000);
+    await sleep(3000);
 
-//     const refreshWithFail = user.lock({
-//       amount: lockAmount.divn(2),
-//       duration: new anchor.BN(10),
-//     });
+    const refreshWithFail = user.lock({
+      amount: lockAmount.divn(2),
+      duration: new anchor.BN(10),
+    });
 
-//     await expect(refreshWithFail).to.eventually.be.rejectedWith(
-//       'failed ({"err":{"InstructionError":[0,{"Custom":7106}]}})'
-//     );
-//   });
+    await expect(refreshWithFail).to.eventually.be.rejectedWith(
+      'failed ({"err":{"InstructionError":[0,{"Custom":7106}]}})'
+    );
+  });
 
-//   it("escrow can be exited & closed", async () => {
-//     const minStakeDuration = new anchor.BN(1);
-//     const maxStakeDuration = new anchor.BN(5);
-//     await governor.setLockerParams({
-//       ...constants.DEFAULT_LOCKER_PARAMS,
-//       whitelistEnabled: false,
-//       minStakeDuration,
-//       maxStakeDuration,
-//     });
-//     const user = await MockUser.create({
-//       provider,
-//       poolInfo: stakePool,
-//       governor,
-//     });
-//     const lockAmount = new anchor.BN(10_000_000);
-//     await tokenMint.mintTo(user.wallet, lockAmount);
-//     await user.lock({
-//       amount: lockAmount,
-//       duration: new anchor.BN(3),
-//     });
+  it("escrow can be exited & closed", async () => {
+    const minStakeDuration = new anchor.BN(1);
+    const maxStakeDuration = new anchor.BN(5);
+    await governor.setLockerParams({
+      ...constants.DEFAULT_LOCKER_PARAMS,
+      whitelistEnabled: false,
+      minStakeDuration,
+      maxStakeDuration,
+    });
+    const user = await MockUser.create({
+      provider,
+      poolInfo: stakePool,
+      governor,
+    });
+    const lockAmount = new anchor.BN(10_000_000);
+    await tokenMint.mintTo(user.wallet, lockAmount);
+    await user.lock({
+      amount: lockAmount,
+      duration: new anchor.BN(3),
+    });
 
-//     await sleep(4000);
+    await sleep(4000);
 
-//     await user.exit();
+    await user.exit();
 
-//     let [escrow, userTokenAccount] = await Promise.all([
-//       user.fetchEscrow(),
-//       tokenMint.getAssociatedTokenAccount(user.wallet.publicKey),
-//     ]);
+    let [escrow, userTokenAccount] = await Promise.all([
+      user.fetchEscrow(),
+      tokenMint.getAssociatedTokenAccount(user.wallet.publicKey),
+    ]);
 
-//     checkEscrow({
-//       account: escrow,
-//       locker: governor.locker,
-//       owner: user.wallet.publicKey,
-//       tokens: await user.getLockedTokensAddress(),
-//       amount: new anchor.BN(0),
-//       escrowStartedAt: escrow.escrowStartedAt,
-//       escrowEndsAt: escrow.escrowEndsAt,
-//       receiptCount: new anchor.BN(0),
-//       voteDelegate: user.wallet.publicKey,
-//     });
-//     checkTokenAccount({
-//       account: userTokenAccount,
-//       mint: tokenMint.address,
-//       amount: lockAmount,
-//     });
+    checkEscrow({
+      account: escrow,
+      locker: governor.locker,
+      owner: user.wallet.publicKey,
+      tokens: await user.getLockedTokensAddress(),
+      amount: new anchor.BN(0),
+      escrowStartedAt: escrow.escrowStartedAt,
+      escrowEndsAt: escrow.escrowEndsAt,
+      receiptCount: new anchor.BN(0),
+      voteDelegate: user.wallet.publicKey,
+    });
+    checkTokenAccount({
+      account: userTokenAccount,
+      mint: tokenMint.address,
+      amount: lockAmount,
+    });
 
-//     await user.closeEscrow();
+    await user.closeEscrow();
 
-//     escrow = await user.fetchEscrow();
-//     assert.strictEqual(escrow, null);
-//   });
+    escrow = await user.fetchEscrow();
+    assert.strictEqual(escrow, null);
+  });
 
-//   it("vest duration verification", async () => {
-//     await stakePool.setMintAuthority();
-//     await governor.setLockerParams({
-//       ...constants.DEFAULT_LOCKER_PARAMS,
-//       whitelistEnabled: true,
-//       minStakeDuration: new anchor.BN(7_689_600),
-//       maxStakeDuration: new anchor.BN(31_622_400),
-//     });
-//     await governor.approveProgramLockPrivilege();
-//     const [user1, user2, user3] = await Promise.all([
-//       MockUser.create({
-//         provider,
-//         poolInfo: stakePool,
-//         governor,
-//       }),
-//       MockUser.create({
-//         provider,
-//         poolInfo: stakePool,
-//         governor,
-//       }),
-//       MockUser.create({
-//         provider,
-//         poolInfo: stakePool,
-//         governor,
-//       }),
-//     ]);
-//     const vestAmount = new anchor.BN(10_000_000);
-//     const vestDuration1 = new anchor.BN(7_689_600);
-//     const vestDuration2 = new anchor.BN(15_638_400);
-//     const vestDuration3 = new anchor.BN(31_536_000);
-//     await pTokenMint.mintTo(user1.wallet, vestAmount);
-//     await user1.vest({ amount: vestAmount, duration: vestDuration1 });
+  it("vest duration verification", async () => {
+    await stakePool.setMintAuthority();
+    await governor.setLockerParams({
+      ...constants.DEFAULT_LOCKER_PARAMS,
+      whitelistEnabled: true,
+      minStakeDuration: new anchor.BN(7_689_600),
+      maxStakeDuration: new anchor.BN(31_622_400),
+    });
+    await governor.approveProgramLockPrivilege();
+    const [user1, user2, user3] = await Promise.all([
+      MockUser.create({
+        provider,
+        poolInfo: stakePool,
+        governor,
+      }),
+      MockUser.create({
+        provider,
+        poolInfo: stakePool,
+        governor,
+      }),
+      MockUser.create({
+        provider,
+        poolInfo: stakePool,
+        governor,
+      }),
+    ]);
+    const vestAmount = new anchor.BN(10_000_000);
+    const vestDuration1 = new anchor.BN(7_689_600);
+    const vestDuration2 = new anchor.BN(15_638_400);
+    const vestDuration3 = new anchor.BN(31_536_000);
+    await pTokenMint.mintTo(user1.wallet, vestAmount);
+    await user1.vest({ amount: vestAmount, duration: vestDuration1 });
 
-//     let pTokenAccount = await pTokenMint.getAssociatedTokenAccount(
-//       user1.wallet.publicKey
-//     );
-//     let escrow = await user1.fetchEscrow();
-//     let lockedTokens = await tokenMint.getTokenAccount(
-//       await user1.getLockedTokensAddress()
-//     );
-//     let expectedTokenAmount = vestAmount.muln(2);
-//     checkTokenAccount({
-//       account: pTokenAccount,
-//       mint: pTokenMint.address,
-//       amount: new anchor.BN(0),
-//     });
-//     checkEscrow({
-//       account: escrow,
-//       locker: governor.locker,
-//       owner: user1.wallet.publicKey,
-//       tokens: await user1.getLockedTokensAddress(),
-//       amount: expectedTokenAmount,
-//       escrowStartedAt: escrow.escrowStartedAt,
-//       escrowEndsAt: escrow.escrowEndsAt,
-//       receiptCount: new anchor.BN(0),
-//       voteDelegate: user1.wallet.publicKey,
-//     });
-//     checkTokenAccount({
-//       account: lockedTokens,
-//       mint: tokenMint.address,
-//       amount: expectedTokenAmount,
-//     });
+    let pTokenAccount = await pTokenMint.getAssociatedTokenAccount(
+      user1.wallet.publicKey
+    );
+    let escrow = await user1.fetchEscrow();
+    let lockedTokens = await tokenMint.getTokenAccount(
+      await user1.getLockedTokensAddress()
+    );
+    let expectedTokenAmount = vestAmount.muln(2);
+    checkTokenAccount({
+      account: pTokenAccount,
+      mint: pTokenMint.address,
+      amount: new anchor.BN(0),
+    });
+    checkEscrow({
+      account: escrow,
+      locker: governor.locker,
+      owner: user1.wallet.publicKey,
+      tokens: await user1.getLockedTokensAddress(),
+      amount: expectedTokenAmount,
+      escrowStartedAt: escrow.escrowStartedAt,
+      escrowEndsAt: escrow.escrowEndsAt,
+      receiptCount: new anchor.BN(0),
+      voteDelegate: user1.wallet.publicKey,
+    });
+    checkTokenAccount({
+      account: lockedTokens,
+      mint: tokenMint.address,
+      amount: expectedTokenAmount,
+    });
 
-//     await pTokenMint.mintTo(user2.wallet, vestAmount);
-//     await user2.vest({ amount: vestAmount, duration: vestDuration2 });
+    await pTokenMint.mintTo(user2.wallet, vestAmount);
+    await user2.vest({ amount: vestAmount, duration: vestDuration2 });
 
-//     pTokenAccount = await pTokenMint.getAssociatedTokenAccount(
-//       user2.wallet.publicKey
-//     );
-//     escrow = await user2.fetchEscrow();
-//     lockedTokens = await tokenMint.getTokenAccount(
-//       await user2.getLockedTokensAddress()
-//     );
-//     expectedTokenAmount = vestAmount.muln(5);
-//     checkTokenAccount({
-//       account: pTokenAccount,
-//       mint: pTokenMint.address,
-//       amount: new anchor.BN(0),
-//     });
-//     checkEscrow({
-//       account: escrow,
-//       locker: governor.locker,
-//       owner: user2.wallet.publicKey,
-//       tokens: await user2.getLockedTokensAddress(),
-//       amount: expectedTokenAmount,
-//       escrowStartedAt: escrow.escrowStartedAt,
-//       escrowEndsAt: escrow.escrowEndsAt,
-//       receiptCount: new anchor.BN(0),
-//       voteDelegate: user2.wallet.publicKey,
-//     });
-//     checkTokenAccount({
-//       account: lockedTokens,
-//       mint: tokenMint.address,
-//       amount: expectedTokenAmount,
-//     });
+    pTokenAccount = await pTokenMint.getAssociatedTokenAccount(
+      user2.wallet.publicKey
+    );
+    escrow = await user2.fetchEscrow();
+    lockedTokens = await tokenMint.getTokenAccount(
+      await user2.getLockedTokensAddress()
+    );
+    expectedTokenAmount = vestAmount.muln(5);
+    checkTokenAccount({
+      account: pTokenAccount,
+      mint: pTokenMint.address,
+      amount: new anchor.BN(0),
+    });
+    checkEscrow({
+      account: escrow,
+      locker: governor.locker,
+      owner: user2.wallet.publicKey,
+      tokens: await user2.getLockedTokensAddress(),
+      amount: expectedTokenAmount,
+      escrowStartedAt: escrow.escrowStartedAt,
+      escrowEndsAt: escrow.escrowEndsAt,
+      receiptCount: new anchor.BN(0),
+      voteDelegate: user2.wallet.publicKey,
+    });
+    checkTokenAccount({
+      account: lockedTokens,
+      mint: tokenMint.address,
+      amount: expectedTokenAmount,
+    });
 
-//     await pTokenMint.mintTo(user3.wallet, vestAmount);
-//     await user3.vest({ amount: vestAmount, duration: vestDuration3 });
+    await pTokenMint.mintTo(user3.wallet, vestAmount);
+    await user3.vest({ amount: vestAmount, duration: vestDuration3 });
 
-//     pTokenAccount = await pTokenMint.getAssociatedTokenAccount(
-//       user3.wallet.publicKey
-//     );
-//     escrow = await user3.fetchEscrow();
-//     lockedTokens = await tokenMint.getTokenAccount(
-//       await user3.getLockedTokensAddress()
-//     );
-//     expectedTokenAmount = vestAmount.muln(10);
-//     checkTokenAccount({
-//       account: pTokenAccount,
-//       mint: pTokenMint.address,
-//       amount: new anchor.BN(0),
-//     });
-//     checkEscrow({
-//       account: escrow,
-//       locker: governor.locker,
-//       owner: user3.wallet.publicKey,
-//       tokens: await user3.getLockedTokensAddress(),
-//       amount: expectedTokenAmount,
-//       escrowStartedAt: escrow.escrowStartedAt,
-//       escrowEndsAt: escrow.escrowEndsAt,
-//       receiptCount: new anchor.BN(0),
-//       voteDelegate: user3.wallet.publicKey,
-//     });
-//     checkTokenAccount({
-//       account: lockedTokens,
-//       mint: tokenMint.address,
-//       amount: expectedTokenAmount,
-//     });
-//   });
-// });
+    pTokenAccount = await pTokenMint.getAssociatedTokenAccount(
+      user3.wallet.publicKey
+    );
+    escrow = await user3.fetchEscrow();
+    lockedTokens = await tokenMint.getTokenAccount(
+      await user3.getLockedTokensAddress()
+    );
+    expectedTokenAmount = vestAmount.muln(10);
+    checkTokenAccount({
+      account: pTokenAccount,
+      mint: pTokenMint.address,
+      amount: new anchor.BN(0),
+    });
+    checkEscrow({
+      account: escrow,
+      locker: governor.locker,
+      owner: user3.wallet.publicKey,
+      tokens: await user3.getLockedTokensAddress(),
+      amount: expectedTokenAmount,
+      escrowStartedAt: escrow.escrowStartedAt,
+      escrowEndsAt: escrow.escrowEndsAt,
+      receiptCount: new anchor.BN(0),
+      voteDelegate: user3.wallet.publicKey,
+    });
+    checkTokenAccount({
+      account: lockedTokens,
+      mint: tokenMint.address,
+      amount: expectedTokenAmount,
+    });
+  });
+});
 
 describe("NFT locked voter", () => {
   const provider = AnchorProvider.env();
