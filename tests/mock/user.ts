@@ -324,43 +324,48 @@ export class MockUser {
     return await txBuilder.transaction();
   }
 
-  private async createCloseEscrowTx() {
+  private async createCloseEscrowTx(receitps?: anchor.BN[]) {
     let destination = await this.tokenMint.getAssociatedTokenAddress(
       this.wallet.publicKey
     );
-    let preInstruction: anchor.web3.TransactionInstruction | undefined =
-      undefined;
+    let preInstructions: anchor.web3.TransactionInstruction[] = [];
 
     if (
       (await this.tokenMint.tryGetAssociatedTokenAccount(
         this.wallet.publicKey
       )) === null
     ) {
-      preInstruction = Token.createAssociatedTokenAccountInstruction(
-        ASSOCIATED_TOKEN_PROGRAM_ID,
-        TOKEN_PROGRAM_ID,
-        this.poolInfo.tokenMint.address,
-        destination,
-        this.wallet.publicKey,
-        this.wallet.publicKey
+      preInstructions.push(
+        Token.createAssociatedTokenAccountInstruction(
+          ASSOCIATED_TOKEN_PROGRAM_ID,
+          TOKEN_PROGRAM_ID,
+          this.tokenMint.address,
+          destination,
+          this.wallet.publicKey,
+          this.wallet.publicKey
+        )
       );
     }
 
-    let txBuilder = this.veHoneyProgram.methods.closeEscrow().accounts({
-      locker: this.governor.locker,
-      escrow: this.escrow,
-      escrowOwner: this.wallet.publicKey,
-      lockedTokens: await this.getLockedTokensAddress(),
-      destinationTokens: destination,
-      fundsReceiver: this.wallet.publicKey,
-      tokenProgram: TOKEN_PROGRAM_ID,
-    });
-
-    if (preInstruction) {
-      txBuilder = txBuilder.preInstructions([preInstruction]);
+    if (receitps) {
+      for (let i = 0; i < receitps.length; i++) {
+        preInstructions.push(await this.createCloseNftReceiptIx(receitps[i]));
+      }
     }
 
-    return await txBuilder.transaction();
+    return await this.veHoneyProgram.methods
+      .closeEscrow()
+      .accounts({
+        locker: this.governor.locker,
+        escrow: this.escrow,
+        escrowOwner: this.wallet.publicKey,
+        lockedTokens: await this.getLockedTokensAddress(),
+        destinationTokens: destination,
+        fundsReceiver: this.wallet.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .preInstructions([...preInstructions])
+      .transaction();
   }
 
   private async createLockNftTx({ receiptId, duration, nft }: LockNftArgs) {
@@ -447,6 +452,58 @@ export class MockUser {
       .transaction();
   }
 
+  private async createClaimNftRewardTx(receiptId: anchor.BN) {
+    let destination = await this.tokenMint.getAssociatedTokenAddress(
+      this.wallet.publicKey
+    );
+    let preInstruction: anchor.web3.TransactionInstruction | undefined =
+      undefined;
+
+    if (
+      (await this.tokenMint.tryGetAssociatedTokenAccount(
+        this.wallet.publicKey
+      )) === null
+    ) {
+      preInstruction = Token.createAssociatedTokenAccountInstruction(
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+        TOKEN_PROGRAM_ID,
+        this.tokenMint.address,
+        destination,
+        this.wallet.publicKey,
+        this.wallet.publicKey
+      );
+    }
+
+    let txBuilder = this.veHoneyProgram.methods.claim().accounts({
+      locker: this.governor.locker,
+      escrow: this.escrow,
+      escrowOwner: this.wallet.publicKey,
+      lockedTokens: await this.getLockedTokensAddress(),
+      destinationTokens: destination,
+      nftReceipt: await this.getReceiptAddress(receiptId),
+      tokenProgram: TOKEN_PROGRAM_ID,
+    });
+
+    if (preInstruction) {
+      txBuilder = txBuilder.preInstructions([preInstruction]);
+    }
+
+    return await txBuilder.transaction();
+  }
+
+  private async createCloseNftReceiptIx(receiptId: anchor.BN) {
+    return await this.veHoneyProgram.methods
+      .closeReceipt()
+      .accounts({
+        locker: this.governor.locker,
+        escrow: this.escrow,
+        nftReceipt: await this.getReceiptAddress(receiptId),
+        escrowOwner: this.wallet.publicKey,
+        fundsReceiver: this.wallet.publicKey,
+      })
+      .instruction();
+  }
+
   public async deposit({ amount, owner }: DepositArgs) {
     const tx = await this.createDepositTx(amount, owner?.publicKey);
     const sig = await this.provider.sendAndConfirm(
@@ -523,8 +580,16 @@ export class MockUser {
     return sig;
   }
 
-  public async closeEscrow() {
-    const tx = await this.createCloseEscrowTx();
+  public async closeEscrow(receipts?: anchor.BN[]) {
+    const tx = await this.createCloseEscrowTx(receipts);
+    const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
+      skipPreflight: true,
+    });
+    return sig;
+  }
+
+  public async claimNftReward(receiptId: anchor.BN) {
+    const tx = await this.createClaimNftRewardTx(receiptId);
     const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
       skipPreflight: true,
     });
@@ -596,6 +661,10 @@ export class MockUser {
 
   public async fetchEscrow() {
     return await this.veHoneyProgram.account.escrow.fetchNullable(this.escrow);
+  }
+
+  public async fetchReceipts() {
+    return await this.veHoneyProgram.account.nftReceipt.all();
   }
 }
 

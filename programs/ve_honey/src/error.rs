@@ -19,6 +19,7 @@ pub enum ProtocolError {
     LockupDurationTooShort,
     LockupDurationTooLong,
     RefreshCannotShorten,
+    ReceiptNotEnded,
 
     MustProvideWhitelist = 1200,
     ProgramNotWhitelisted,

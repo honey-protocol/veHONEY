@@ -9,7 +9,12 @@ import { MockWallet } from "./mock/wallet";
 import * as constants from "./constants";
 import { MockUser } from "./mock/user";
 import { MockGovernor } from "./mock/governor";
-import { checkEscrow, checkLocker, checkTokenAccount } from "./utils/check";
+import {
+  checkEscrow,
+  checkLocker,
+  checkNftReceipt,
+  checkTokenAccount,
+} from "./utils/check";
 import { sleep } from "./utils/util";
 import { MockNFT } from "./mock/nft";
 
@@ -135,7 +140,7 @@ describe("locked voters", () => {
     });
     const lockAmount = new anchor.BN(10_000_000);
     await tokenMint.mintTo(user.wallet, lockAmount);
-    await user.lock({ amount: lockAmount, duration: new anchor.BN(5) });
+    await user.lock({ amount: lockAmount, duration: new anchor.BN(4) });
 
     const lockedTokensAccount = await tokenMint.tryGetAssociatedTokenAccount(
       user.escrow
@@ -241,9 +246,10 @@ describe("locked voters", () => {
 
     await user.exit();
 
-    let [escrow, userTokenAccount] = await Promise.all([
+    let [escrow, userTokenAccount, lockedTokens] = await Promise.all([
       user.fetchEscrow(),
       tokenMint.getAssociatedTokenAccount(user.wallet.publicKey),
+      tokenMint.getAssociatedTokenAccount(user.escrow),
     ]);
 
     checkEscrow({
@@ -262,11 +268,20 @@ describe("locked voters", () => {
       mint: tokenMint.address,
       amount: lockAmount,
     });
+    checkTokenAccount({
+      account: lockedTokens,
+      mint: tokenMint.address,
+      amount: new anchor.BN(0),
+    });
 
     await user.closeEscrow();
 
-    escrow = await user.fetchEscrow();
+    [escrow, lockedTokens] = await Promise.all([
+      user.fetchEscrow(),
+      await tokenMint.tryGetAssociatedTokenAccount(user.escrow),
+    ]);
     assert.strictEqual(escrow, null);
+    assert.strictEqual(lockedTokens, null);
   });
 
   it("vest duration verification", async () => {
@@ -472,7 +487,7 @@ describe("NFT locked voter", () => {
 
     await user.lockNft({
       receiptId: new anchor.BN(1),
-      duration: new anchor.BN(10),
+      duration: new anchor.BN(20),
       nft,
     });
 
@@ -484,7 +499,7 @@ describe("NFT locked voter", () => {
       nft.mint.tryGetAssociatedTokenAccount(user.wallet.publicKey),
     ]);
 
-    const rewardAmount = await governor.calcRewardAmount();
+    const rewardAmount = await governor.calcRewardAmountAt();
     treasuryAmount = treasuryAmount.sub(rewardAmount);
 
     checkLocker({
@@ -523,5 +538,188 @@ describe("NFT locked voter", () => {
     });
 
     assert.strictEqual(userNft, null);
+
+    const receipts = await user.fetchReceipts();
+    const receipt = receipts.find((r) => r.account.receiptId.eqn(1));
+
+    checkNftReceipt({
+      account: receipt.account,
+      receiptId: new anchor.BN(1),
+      locker: governor.locker,
+      owner: user.wallet.publicKey,
+      claimedAmount: new anchor.BN(0),
+    });
+  });
+
+  it("NFT locked voter can claim rewards since 1 unit duration later", async () => {
+    let treasuryAmount = new anchor.BN(1_000_000_000_000);
+    await tokenMint.mintToAddress(
+      await governor.getTreasuryAddress(),
+      treasuryAmount
+    );
+    const user = await MockUser.create({
+      provider,
+      governor,
+    });
+    await nft.mintTo(user.wallet, new anchor.BN(1));
+    await nft.createMasterEdition();
+
+    await governor.addProof(
+      new anchor.web3.PublicKey(nft.metadata.data.data.creators.at(0).address)
+    );
+
+    const receiptId = new anchor.BN(1);
+
+    await user.lockNft({
+      receiptId,
+      duration: new anchor.BN(20),
+      nft,
+    });
+
+    await sleep(2000);
+
+    await user.claimNftReward(receiptId);
+
+    const [escrow, lockedTokens, userToken] = await Promise.all([
+      user.fetchEscrow(),
+      tokenMint.getAssociatedTokenAccount(user.escrow),
+      tokenMint.getAssociatedTokenAccount(user.wallet.publicKey),
+    ]);
+
+    const receipt = (await user.fetchReceipts()).find(
+      (r) =>
+        r.account.receiptId.eqn(1) &&
+        r.account.owner.equals(user.wallet.publicKey)
+    );
+
+    const rewardAmount = await governor.calcRewardAmountAt();
+    const claimAmount = await governor.calcRewardAmountAt(1);
+    const remainingAmount = rewardAmount.sub(claimAmount);
+
+    checkEscrow({
+      account: escrow,
+      locker: governor.locker,
+      owner: user.wallet.publicKey,
+      tokens: await user.getLockedTokensAddress(),
+      amount: remainingAmount,
+      escrowStartedAt: escrow.escrowStartedAt,
+      escrowEndsAt: escrow.escrowEndsAt,
+      receiptCount: new anchor.BN(1),
+      voteDelegate: user.wallet.publicKey,
+    });
+
+    checkTokenAccount({
+      account: lockedTokens,
+      mint: tokenMint.address,
+      amount: remainingAmount,
+    });
+
+    checkTokenAccount({
+      account: userToken,
+      mint: tokenMint.address,
+      amount: claimAmount,
+    });
+
+    checkNftReceipt({
+      account: receipt.account,
+      receiptId,
+      locker: governor.locker,
+      owner: user.wallet.publicKey,
+      claimedAmount: claimAmount,
+    });
+  });
+
+  it("after claimed for all receipts, can close escrow", async () => {
+    let treasuryAmount = new anchor.BN(1_000_000_000_000);
+    await tokenMint.mintToAddress(
+      await governor.getTreasuryAddress(),
+      treasuryAmount
+    );
+    const user = await MockUser.create({
+      provider,
+      governor,
+    });
+    await nft.mintTo(user.wallet, new anchor.BN(1));
+    await nft.createMasterEdition();
+
+    await governor.addProof(
+      new anchor.web3.PublicKey(nft.metadata.data.data.creators.at(0).address)
+    );
+
+    const receiptId = new anchor.BN(1);
+
+    await user.lockNft({
+      receiptId,
+      duration: new anchor.BN(20),
+      nft,
+    });
+
+    await sleep(21000);
+
+    await user.claimNftReward(receiptId);
+
+    let [escrow, lockedTokens, userToken] = await Promise.all([
+      user.fetchEscrow(),
+      tokenMint.getAssociatedTokenAccount(user.escrow),
+      tokenMint.getAssociatedTokenAccount(user.wallet.publicKey),
+    ]);
+
+    const receipt = (await user.fetchReceipts()).find(
+      (r) =>
+        r.account.receiptId.eqn(1) &&
+        r.account.owner.equals(user.wallet.publicKey)
+    );
+
+    const rewardAmount = await governor.calcRewardAmountAt();
+    const claimAmount = rewardAmount;
+    const remainingAmount = new anchor.BN(0);
+
+    checkEscrow({
+      account: escrow,
+      locker: governor.locker,
+      owner: user.wallet.publicKey,
+      tokens: await user.getLockedTokensAddress(),
+      amount: remainingAmount,
+      escrowStartedAt: escrow.escrowStartedAt,
+      escrowEndsAt: escrow.escrowEndsAt,
+      receiptCount: new anchor.BN(1),
+      voteDelegate: user.wallet.publicKey,
+    });
+
+    checkTokenAccount({
+      account: lockedTokens,
+      mint: tokenMint.address,
+      amount: remainingAmount,
+    });
+
+    checkTokenAccount({
+      account: userToken,
+      mint: tokenMint.address,
+      amount: claimAmount,
+    });
+
+    checkNftReceipt({
+      account: receipt.account,
+      receiptId,
+      locker: governor.locker,
+      owner: user.wallet.publicKey,
+      claimedAmount: claimAmount,
+    });
+
+    await user.closeEscrow([receiptId]);
+
+    [escrow, lockedTokens] = await Promise.all([
+      user.fetchEscrow(),
+      tokenMint.tryGetAssociatedTokenAccount(user.escrow),
+    ]);
+
+    assert.strictEqual(escrow, null);
+    assert.strictEqual(lockedTokens, null);
+    assert.strictEqual(
+      (await user.fetchReceipts()).filter((r) =>
+        r.account.owner.equals(user.wallet.publicKey)
+      ).length,
+      0
+    );
   });
 });

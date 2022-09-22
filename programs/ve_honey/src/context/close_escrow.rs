@@ -3,7 +3,6 @@ use crate::error::*;
 use crate::escrow_seeds;
 use crate::state::*;
 use anchor_lang::prelude::*;
-use anchor_lang::AccountsClose;
 use anchor_spl::token::{self, Token, TokenAccount};
 use vipers::*;
 
@@ -11,9 +10,10 @@ use vipers::*;
 #[derive(Accounts)]
 pub struct CloseEscrow<'info> {
     /// the [Locker].
+    #[account(mut)]
     pub locker: Box<Account<'info, Locker>>,
     /// the [Escrow] that is being closed
-    #[account(mut)]
+    #[account(mut, close = funds_receiver)]
     pub escrow: Box<Account<'info, Escrow>>,
     /// authority of the [Escrow].
     pub escrow_owner: Signer<'info>,
@@ -21,6 +21,7 @@ pub struct CloseEscrow<'info> {
     #[account(mut)]
     pub locked_tokens: Box<Account<'info, TokenAccount>>,
     /// destination for the tokens to unlock
+    #[account(mut)]
     pub destination_tokens: Box<Account<'info, TokenAccount>>,
     /// funds receiver
     /// CHECK:
@@ -32,9 +33,7 @@ pub struct CloseEscrow<'info> {
 }
 
 impl<'info> CloseEscrow<'info> {
-    pub fn process(&mut self, ra: &[AccountInfo<'info>]) -> Result<()> {
-        self.close_receipts(ra)?;
-
+    pub fn process(&mut self) -> Result<()> {
         let seeds: &[&[&[u8]]] = escrow_seeds!(self.escrow);
 
         if self.escrow.amount > 0 {
@@ -64,45 +63,8 @@ impl<'info> CloseEscrow<'info> {
             .with_signer(seeds),
         )?;
 
-        let locker = &mut self.locker;
-        locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(self.escrow.amount));
-        self.escrow.close(self.funds_receiver.to_account_info())?;
-
-        Ok(())
-    }
-
-    fn close_receipts(&self, ra: &[AccountInfo<'info>]) -> Result<()> {
-        let receipt_count = self.escrow.receipt_count;
-
-        invariant!(
-            receipt_count as usize == ra.len(),
-            ProtocolError::InvalidRemainingAccounts
-        );
-
-        let accounts_iter = &mut ra.iter();
-        let mut receipt_ids: Vec<u64> = vec![];
-        for _ in 0..receipt_count {
-            let receipt_info = next_account_info(accounts_iter)?;
-            invariant!(receipt_info.is_writable, ProtocolError::InvariantViolated);
-            let receipt = Account::<NftReceipt>::try_from(receipt_info)?;
-            assert_keys_eq!(
-                receipt.owner,
-                self.escrow_owner,
-                ProtocolError::InvalidAccountOwner
-            );
-            assert_keys_eq!(receipt.locker, self.locker, ProtocolError::InvalidLocker);
-            invariant!(
-                !receipt_ids.contains(&receipt.receipt_id),
-                ProtocolError::InvalidRemainingAccounts
-            );
-            receipt_ids.push(receipt.receipt_id);
-
-            let remaining_amount =
-                receipt.get_claim_amount_at(&self.locker.params, receipt.vest_ends_at)?;
-
-            invariant!(remaining_amount == 0, ProtocolError::InvariantViolated);
-            receipt.close(self.funds_receiver.to_account_info())?;
-        }
+        self.locker.locked_supply =
+            unwrap_int!(self.locker.locked_supply.checked_sub(self.escrow.amount));
 
         Ok(())
     }
@@ -133,6 +95,7 @@ impl<'info> Validate<'info> for CloseEscrow<'info> {
             self.escrow.escrow_ends_at < now,
             ProtocolError::EscrowNotEnded
         );
+        invariant!(self.escrow.receipt_count == 0);
 
         Ok(())
     }

@@ -70,6 +70,14 @@ export type CheckProofArgs = {
   locker: PublicKey;
 };
 
+export type CheckNftReceiptArgs = {
+  account: any;
+  receiptId: anchor.BN;
+  locker: PublicKey;
+  owner: PublicKey;
+  claimedAmount: anchor.BN;
+};
+
 export function checkStakePool({
   poolInfo,
   version,
@@ -204,6 +212,19 @@ export function checkProof({
   assert.strictEqual(account.proofType, proofType, "type");
   checkPublicKey(account.proofAddress, proofAddress, "proofAddress");
   checkPublicKey(account.locker, locker, "locker");
+}
+
+export function checkNftReceipt({
+  account,
+  receiptId,
+  locker,
+  owner,
+  claimedAmount,
+}: CheckNftReceiptArgs) {
+  checkBN(account.receiptId, receiptId, "receiptId");
+  checkPublicKey(account.locker, locker, "locker");
+  checkPublicKey(account.owner, owner, "owner");
+  checkBN(account.claimedAmount, claimedAmount, "claimedAmount");
 }
 
 export function checkPublicKey(

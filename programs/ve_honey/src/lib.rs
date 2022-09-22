@@ -100,8 +100,14 @@ pub mod ve_honey {
     }
 
     #[access_control(ctx.accounts.validate())]
-    pub fn close_escrow<'info>(ctx: Context<'_, '_, '_, 'info, CloseEscrow<'info>>) -> Result<()> {
-        ctx.accounts.process(ctx.remaining_accounts)?;
+    pub fn close_receipt(ctx: Context<CloseReceipt>) -> Result<()> {
+        ctx.accounts.process()?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
+    pub fn close_escrow(ctx: Context<CloseEscrow>) -> Result<()> {
+        ctx.accounts.process()?;
         Ok(())
     }
 
