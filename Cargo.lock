@@ -1269,7 +1269,7 @@ dependencies = [
 
 [[package]]
 name = "stake"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -1354,7 +1354,7 @@ checksum = "7e8820f5d777f6224dc4be3632222971ac30164d4a258d595640799554ebfd99"
 
 [[package]]
 name = "ve_honey"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
