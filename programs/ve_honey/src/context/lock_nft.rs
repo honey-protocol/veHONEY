@@ -10,19 +10,18 @@ pub struct LockNft<'info> {
     /// payer of the initialization of [NftVault].
     #[account(mut)]
     pub payer: Signer<'info>,
-    /// base seed of [Locker] PDA.
-    /// CHECK:
-    pub base: UncheckedAccount<'info>,
     /// [Locker].
-    #[account(mut, has_one = base)]
+    #[account(mut)]
     pub locker: Box<Account<'info, Locker>>,
-    /// [NftVault].
+    /// [Escrow].
+    #[account(mut)]
+    pub escrow: Box<Account<'info, Escrow>>,
+    /// [NftReceipt].
     #[account(
         init,
         seeds = [
             NFT_RECEIPT_SEED.as_bytes(),
-            locker.key().as_ref(),
-            owner.key().as_ref(),
+            escrow.key().as_ref(),
             receipt_id.to_le_bytes().as_ref(),
         ],
         bump,
@@ -30,20 +29,19 @@ pub struct LockNft<'info> {
         space = 8 + NftReceipt::LEN,
     )]
     pub receipt: Box<Account<'info, NftReceipt>>,
-    /// [Escrow].
-    #[account(mut)]
-    pub escrow: Box<Account<'info, Escrow>>,
+    /// Authority of the [Escrow].
+    pub escrow_owner: Signer<'info>,
     /// locked tokens.
     #[account(mut)]
     pub locked_tokens: Box<Account<'info, TokenAccount>>,
     /// locker treasury.
     #[account(mut)]
     pub locker_treasury: Box<Account<'info, TokenAccount>>,
-    /// owner of the nft.
-    pub owner: Signer<'info>,
     /// nft source token account.
-    #[account(mut, has_one = owner)]
+    #[account(mut)]
     pub nft_source: Box<Account<'info, TokenAccount>>,
+    /// authority of the nft.
+    pub nft_source_authority: Signer<'info>,
 
     /// system program
     pub system_program: Program<'info, System>,
@@ -59,9 +57,9 @@ impl<'info> LockNft<'info> {
 
         let receipt = &mut self.receipt;
 
-        receipt.locker = self.locker.key();
         receipt.receipt_id = receipt_id;
-        receipt.owner = self.owner.key();
+        receipt.locker = self.locker.key();
+        receipt.owner = self.escrow_owner.key();
         receipt.vest_started_at = Clock::get()?.unix_timestamp;
         receipt.vest_ends_at = unwrap_int!(receipt.vest_started_at.checked_add(duration));
         receipt.claimed_amount = 0;
@@ -78,7 +76,7 @@ impl<'info> LockNft<'info> {
 
         let seeds = &[
             LOCKER_SEED.as_bytes(),
-            &self.base.key().to_bytes()[..32],
+            &self.locker.base.to_bytes()[..32],
             &[self.locker.bump],
         ];
 
@@ -213,7 +211,7 @@ fn burn_nft<'info>(ctx: &Context<'_, '_, '_, 'info, LockNft<'info>>) -> Result<(
     let mut account_infos: Vec<AccountInfo> = vec![
         metaplex_metadata_program.to_account_info(),
         nft_metadata.to_account_info(),
-        ctx.accounts.owner.to_account_info(),
+        ctx.accounts.nft_source_authority.to_account_info(),
         nft_mint.to_account_info(),
         ctx.accounts.nft_source.to_account_info(),
         nft_edition.to_account_info(),
@@ -232,7 +230,7 @@ fn burn_nft<'info>(ctx: &Context<'_, '_, '_, 'info, LockNft<'info>>) -> Result<(
         &mpl_token_metadata::instruction::burn_nft(
             metaplex_metadata_program.key(),
             nft_metadata.key(),
-            ctx.accounts.owner.key(),
+            ctx.accounts.nft_source_authority.key(),
             nft_mint.key(),
             ctx.accounts.nft_source.key(),
             nft_edition.key(),
@@ -267,19 +265,19 @@ impl<'info> Validate<'info> for LockNft<'info> {
             ProtocolError::InvalidLocker
         );
         assert_keys_eq!(
-            self.locked_tokens.owner,
-            self.escrow,
-            ProtocolError::InvalidTokenOwner
+            self.escrow.tokens,
+            self.locked_tokens,
+            ProtocolError::InvalidToken
+        );
+        assert_keys_eq!(
+            self.escrow.owner,
+            self.escrow_owner,
+            ProtocolError::InvalidAccountOwner
         );
         assert_keys_eq!(
             self.locker_treasury.owner,
             self.locker,
             ProtocolError::InvalidTokenOwner
-        );
-        assert_keys_eq!(
-            self.locked_tokens.mint,
-            self.locker.token_mint,
-            ProtocolError::InvalidLockerMint
         );
         assert_keys_eq!(
             self.locker_treasury.mint,

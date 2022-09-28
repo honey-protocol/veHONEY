@@ -434,16 +434,16 @@ export class MockUser {
       .lockNft(receiptId, duration)
       .accounts({
         payer: this.wallet.publicKey,
-        base: this.governor.lockerBase.publicKey,
         locker: this.governor.locker,
         receipt: await this.getReceiptAddress(receiptId),
         escrow: this.escrow,
+        escrowOwner: this.wallet.publicKey,
         lockedTokens: await this.getLockedTokensAddress(),
         lockerTreasury: await this.governor.getTreasuryAddress(),
-        owner: this.wallet.publicKey,
         nftSource: await nft.mint.getAssociatedTokenAddress(
           this.wallet.publicKey
         ),
+        nftSourceAuthority: this.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
@@ -637,8 +637,7 @@ export class MockUser {
     const [address] = await PublicKey.findProgramAddress(
       [
         Buffer.from(constants.NFT_RECEIPT_SEED),
-        this.governor.locker.toBuffer(),
-        this.wallet.publicKey.toBuffer(),
+        this.escrow.toBuffer(),
         receiptId.toBuffer("le", 8),
       ],
       this.veHoneyProgram.programId
