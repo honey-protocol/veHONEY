@@ -1,30 +1,6 @@
 use crate::*;
 use anchor_lang::solana_program::pubkey::PUBKEY_BYTES;
 
-pub const MAX_VEST_DURATION: i64 = 315_360_000;
-pub const UNIT_VEST_DURATION: i64 = 31_536_000;
-
-// Year 1 = 3_750_000_000
-// Year 2 = 3_750_000_000
-// Year 3 = 1_875_000_000
-// Year 4 = 937_500_000
-// Year 5 = 468_750_000
-// Year 6 = 234_375_000
-// Year 7 = 117_187_500
-// Year 8 = 58_593_750
-// Year 9 = 29_296_875
-// Year 10 = 14_648_438
-pub const MAX_REWARD_AMOUNT: u64 = 3_750_000_000 * 2
-    + 1_875_000_000
-    + 937_500_000
-    + 468_750_000
-    + 234_375_000
-    + 117_187_500
-    + 58_593_750
-    + 29_296_875
-    + 14_648_438;
-pub const BASE_REWARD_AMOUNT: u64 = 3_750_000_000;
-
 #[account]
 pub struct NftReceipt {
     // receipt id

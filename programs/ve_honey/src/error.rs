@@ -7,6 +7,7 @@ pub enum ProtocolError {
     InvalidLockerMint,
     InvalidAccountOwner,
     InvalidTokenOwner,
+    InvalidToken,
     InvalidAssociatedTokenAccount,
     InvalidRemainingAccounts,
     InvalidProofType,

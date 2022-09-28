@@ -78,9 +78,20 @@ impl<'info> Validate<'info> for Claim<'info> {
             self.escrow_owner,
             ProtocolError::InvalidAccountOwner
         );
-        assert_keys_eq!(self.escrow.tokens, self.locked_tokens);
-        assert_keys_neq!(self.locked_tokens, self.destination_tokens);
-        invariant!(self.escrow.receipt_count > 0);
+        assert_keys_eq!(
+            self.escrow.tokens,
+            self.locked_tokens,
+            ProtocolError::InvalidToken
+        );
+        assert_keys_neq!(
+            self.locked_tokens,
+            self.destination_tokens,
+            ProtocolError::InvalidToken
+        );
+        invariant!(
+            self.escrow.receipt_count > 0,
+            ProtocolError::InvariantViolated
+        );
 
         Ok(())
     }

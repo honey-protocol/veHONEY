@@ -98,9 +98,26 @@ impl<'info> Exit<'info> {
 
 impl<'info> Validate<'info> for Exit<'info> {
     fn validate(&self) -> Result<()> {
-        assert_keys_eq!(self.locker, self.escrow.locker);
-        assert_keys_eq!(self.escrow.owner, self.escrow_owner);
-        assert_keys_eq!(self.escrow.tokens, self.locked_tokens);
+        assert_keys_eq!(
+            self.locker,
+            self.escrow.locker,
+            ProtocolError::InvalidLocker
+        );
+        assert_keys_eq!(
+            self.escrow.owner,
+            self.escrow_owner,
+            ProtocolError::InvalidAccountOwner
+        );
+        assert_keys_eq!(
+            self.escrow.tokens,
+            self.locked_tokens,
+            ProtocolError::InvalidToken
+        );
+        assert_keys_neq!(
+            self.locked_tokens,
+            self.destination_tokens,
+            ProtocolError::InvalidToken
+        );
         let now = Clock::get()?.unix_timestamp;
         msg!(
             "now: {}; escrow_ends_at: {}",
@@ -111,8 +128,6 @@ impl<'info> Validate<'info> for Exit<'info> {
             self.escrow.escrow_ends_at < now,
             ProtocolError::EscrowNotEnded
         );
-
-        assert_keys_neq!(self.locked_tokens, self.destination_tokens);
 
         Ok(())
     }

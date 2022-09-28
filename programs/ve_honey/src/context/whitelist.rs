@@ -59,7 +59,11 @@ impl<'info> ApproveProgramLockPrivilege<'info> {
 
 impl<'info> Validate<'info> for ApproveProgramLockPrivilege<'info> {
     fn validate(&self) -> Result<()> {
-        assert_keys_eq!(self.governor.smart_wallet, self.smart_wallet);
+        assert_keys_eq!(
+            self.governor.smart_wallet,
+            self.smart_wallet,
+            ProtocolError::SmartWalletMismatch
+        );
         invariant!(
             self.executable_id.executable,
             ProtocolError::ProgramIdMustBeExecutable
@@ -100,7 +104,11 @@ impl<'info> RevokeProgramLockPrivilege<'info> {
 
 impl<'info> Validate<'info> for RevokeProgramLockPrivilege<'info> {
     fn validate(&self) -> Result<()> {
-        assert_keys_eq!(self.governor.smart_wallet, self.smart_wallet);
+        assert_keys_eq!(
+            self.governor.smart_wallet,
+            self.smart_wallet,
+            ProtocolError::SmartWalletMismatch
+        );
 
         Ok(())
     }

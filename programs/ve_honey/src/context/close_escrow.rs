@@ -1,5 +1,6 @@
 use crate::*;
 use anchor_spl::token::{self, Token, TokenAccount};
+
 // Close [Escrow] along with [NftReceipt] accounts.
 #[derive(Accounts)]
 pub struct CloseEscrow<'info> {
@@ -76,9 +77,21 @@ impl<'info> Validate<'info> for CloseEscrow<'info> {
             self.escrow_owner,
             ProtocolError::InvalidAccountOwner
         );
-        assert_keys_eq!(self.escrow.tokens, self.locked_tokens);
-        assert_keys_neq!(self.locked_tokens, self.destination_tokens);
-        assert_keys_eq!(self.locked_tokens.mint, self.destination_tokens.mint);
+        assert_keys_eq!(
+            self.escrow.tokens,
+            self.locked_tokens,
+            ProtocolError::InvalidToken
+        );
+        assert_keys_neq!(
+            self.locked_tokens,
+            self.destination_tokens,
+            ProtocolError::InvalidToken
+        );
+        assert_keys_eq!(
+            self.locked_tokens.mint,
+            self.destination_tokens.mint,
+            ProtocolError::InvalidLockerMint
+        );
         let now = Clock::get()?.unix_timestamp;
         msg!(
             "now: {}; escrow_ends_at: {}",
@@ -89,7 +102,10 @@ impl<'info> Validate<'info> for CloseEscrow<'info> {
             self.escrow.escrow_ends_at < now,
             ProtocolError::EscrowNotEnded
         );
-        invariant!(self.escrow.receipt_count == 0);
+        invariant!(
+            self.escrow.receipt_count == 0,
+            ProtocolError::InvariantViolated
+        );
 
         Ok(())
     }

@@ -27,7 +27,11 @@ impl<'info> Validate<'info> for SetLockerParams<'info> {
             self.locker.governor,
             ProtocolError::GovernorMismatch
         );
-        assert_keys_eq!(self.smart_wallet, self.governor.smart_wallet);
+        assert_keys_eq!(
+            self.smart_wallet,
+            self.governor.smart_wallet,
+            ProtocolError::SmartWalletMismatch
+        );
 
         Ok(())
     }
