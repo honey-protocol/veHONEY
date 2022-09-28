@@ -12,6 +12,7 @@ pub enum ProtocolError {
     InvalidProofType,
     InvalidProof,
     InvalidGovernorParams,
+    InvalidVoteDelegate,
 
     EscrowNotEnded = 1100,
     EscrowExpired,
@@ -30,6 +31,8 @@ pub enum ProtocolError {
 
     GovernorMismatch = 1300,
     SmartWalletMismatch,
+    ProposalMismatch,
+    VoterMismatch,
     ProposalMustBeActive,
     InsufficientVotingPower,
     LockedSupplyMismatch,
