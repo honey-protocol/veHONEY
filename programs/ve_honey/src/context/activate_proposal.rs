@@ -48,11 +48,31 @@ impl<'info> ActivateProposal<'info> {
 
 impl<'info> Validate<'info> for ActivateProposal<'info> {
     fn validate(&self) -> Result<()> {
-        assert_keys_eq!(self.locker, self.governor.electorate);
-        assert_keys_eq!(self.governor, self.locker.governor);
-        assert_keys_eq!(self.proposal.governor, self.governor);
-        assert_keys_eq!(self.escrow.locker, self.locker);
-        assert_keys_eq!(self.escrow.owner, self.escrow_owner);
+        assert_keys_eq!(
+            self.locker,
+            self.governor.electorate,
+            ProtocolError::InvalidGovernorParams
+        );
+        assert_keys_eq!(
+            self.governor,
+            self.locker.governor,
+            ProtocolError::GovernorMismatch
+        );
+        assert_keys_eq!(
+            self.proposal.governor,
+            self.governor,
+            ProtocolError::GovernorMismatch
+        );
+        assert_keys_eq!(
+            self.escrow.locker,
+            self.locker,
+            ProtocolError::InvalidLocker
+        );
+        assert_keys_eq!(
+            self.escrow.owner,
+            self.escrow_owner,
+            ProtocolError::InvalidAccountOwner
+        );
 
         invariant!(
             self.voting_power()? >= self.locker.params.proposal_activation_min_votes,

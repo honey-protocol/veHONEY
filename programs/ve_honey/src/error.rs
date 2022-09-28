@@ -11,6 +11,7 @@ pub enum ProtocolError {
     InvalidRemainingAccounts,
     InvalidProofType,
     InvalidProof,
+    InvalidGovernorParams,
 
     EscrowNotEnded = 1100,
     EscrowExpired,
