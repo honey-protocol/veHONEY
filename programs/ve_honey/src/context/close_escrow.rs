@@ -1,11 +1,5 @@
-use crate::constants::*;
-use crate::error::*;
-use crate::escrow_seeds;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use anchor_spl::token::{self, Token, TokenAccount};
-use vipers::*;
-
 // Close [Escrow] along with [NftReceipt] accounts.
 #[derive(Accounts)]
 pub struct CloseEscrow<'info> {

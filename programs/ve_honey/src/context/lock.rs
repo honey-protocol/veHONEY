@@ -1,11 +1,8 @@
-use crate::error::*;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use anchor_lang::solana_program::system_program;
 use anchor_lang::solana_program::sysvar::instructions::get_instruction_relative;
 use anchor_spl::token::{self, Token, TokenAccount};
 use num_traits::ToPrimitive;
-use vipers::*;
 
 #[derive(Accounts)]
 pub struct Lock<'info> {

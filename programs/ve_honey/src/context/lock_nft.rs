@@ -1,12 +1,8 @@
-use crate::constants::*;
-use crate::error::*;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use anchor_lang::solana_program::program::invoke;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 use mpl_token_metadata::state::{Metadata, TokenMetadataAccount};
 use num_traits::ToPrimitive;
-use vipers::*;
 
 #[derive(Accounts)]
 #[instruction(receipt_id: u64)]

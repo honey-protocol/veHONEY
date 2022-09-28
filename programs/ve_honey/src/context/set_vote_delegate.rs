@@ -1,8 +1,4 @@
-use crate::error::ProtocolError;
-use crate::state::*;
-use anchor_lang::prelude::*;
-use vipers::*;
-
+use crate::*;
 #[derive(Accounts)]
 pub struct SetVoteDelegate<'info> {
     /// The [Escrow].

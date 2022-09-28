@@ -1,9 +1,6 @@
-use crate::constants::*;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use anchor_spl::token::Mint;
 use govern::Governor;
-use vipers::*;
 
 #[derive(Accounts)]
 pub struct InitLocker<'info> {

@@ -1,4 +1,4 @@
-use anchor_lang::prelude::*;
+use crate::*;
 
 /// [ve_honey] errors.
 #[error_code]

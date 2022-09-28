@@ -1,7 +1,6 @@
-use crate::state::*;
-use anchor_lang::{prelude::*, solana_program::pubkey::PUBKEY_BYTES};
+use crate::*;
+use anchor_lang::solana_program::pubkey::PUBKEY_BYTES;
 use num_traits::ToPrimitive;
-use vipers::unwrap_int;
 
 #[account]
 #[derive(Debug, Default)]

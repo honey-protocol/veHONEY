@@ -1,8 +1,5 @@
-use crate::error::*;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use anchor_lang::solana_program::pubkey::PUBKEY_BYTES;
-use vipers::*;
 
 pub const MAX_VEST_DURATION: i64 = 315_360_000;
 pub const UNIT_VEST_DURATION: i64 = 31_536_000;

@@ -1,5 +1,4 @@
-use crate::error::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use anchor_lang::solana_program::pubkey::PUBKEY_BYTES;
 
 #[account]

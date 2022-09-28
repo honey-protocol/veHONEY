@@ -1,11 +1,6 @@
-use crate::constants::*;
-use crate::error::*;
-use crate::locker_seeds;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use govern::program::Govern;
 use govern::{Governor, Proposal};
-use vipers::*;
 
 #[derive(Accounts)]
 pub struct ActivateProposal<'info> {

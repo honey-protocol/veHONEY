@@ -1,6 +1,5 @@
-use crate::state::*;
-use anchor_lang::{prelude::*, solana_program::pubkey::PUBKEY_BYTES};
-use vipers::*;
+use crate::*;
+use anchor_lang::solana_program::pubkey::PUBKEY_BYTES;
 
 #[account]
 #[derive(Debug, Default)]

@@ -1,9 +1,5 @@
-use crate::constants::*;
-use crate::error::*;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use govern::Governor;
-use vipers::*;
 
 #[derive(Accounts)]
 pub struct ApproveProgramLockPrivilege<'info> {

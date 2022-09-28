@@ -1,10 +1,6 @@
-use crate::constants::*;
-use crate::error::*;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use anchor_lang::AccountsClose;
 use govern::Governor;
-use vipers::*;
 
 #[derive(Accounts)]
 pub struct AddProof<'info> {
