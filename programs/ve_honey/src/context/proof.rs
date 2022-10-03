@@ -1,5 +1,4 @@
 use crate::*;
-use anchor_lang::AccountsClose;
 use govern::Governor;
 
 #[derive(Accounts)]
@@ -18,8 +17,8 @@ pub struct AddProof<'info> {
             address.key().as_ref(),
         ],
         bump,
-        payer = payer,
         space = 8 + Proof::LEN,
+        payer = payer,
     )]
     pub proof: Box<Account<'info, Proof>>,
     /// proof address.
@@ -66,26 +65,14 @@ impl<'info> Validate<'info> for AddProof<'info> {
 
 #[derive(Accounts)]
 pub struct RemoveProof<'info> {
-    /// Payer.
-    /// CHECK:
-    #[account(mut)]
-    pub payer: UncheckedAccount<'info>,
     /// the [Locker].
     pub locker: Box<Account<'info, Locker>>,
     /// the [Proof].
-    #[account(
-        mut,
-        seeds = [
-            PROOF_SEED.as_bytes(),
-            locker.key().as_ref(),
-            address.key().as_ref(),
-        ],
-        bump,
-    )]
+    #[account(mut, close = funds_receiver)]
     pub proof: Box<Account<'info, Proof>>,
-    /// proof address.
-    /// CHECK:
-    pub address: UncheckedAccount<'info>,
+    /// CHECK: funds receiver
+    #[account(mut)]
+    pub funds_receiver: UncheckedAccount<'info>,
     /// the [Governor].
     pub governor: Box<Account<'info, Governor>>,
     /// the smart wallet on the [Governor].
@@ -99,8 +86,6 @@ impl<'info> RemoveProof<'info> {
         proof.proof_address = Pubkey::default();
         proof.locker = Pubkey::default();
         proof.proof_type = 0;
-
-        proof.close(self.payer.to_account_info())?;
 
         Ok(())
     }

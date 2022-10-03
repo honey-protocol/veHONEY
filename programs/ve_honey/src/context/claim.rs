@@ -28,11 +28,11 @@ pub struct Claim<'info> {
 
 impl<'info> Claim<'info> {
     pub fn process(&mut self) -> Result<()> {
-        let claim_amount = self
+        let claim_amount = unwrap_int!(self
             .nft_receipt
-            .get_claim_amount_at(&self.locker.params, Clock::get()?.unix_timestamp)?;
+            .calculate_reward_amount_at_time(&self.locker.params, Clock::get()?.unix_timestamp));
 
-        invariant!(claim_amount > 0, ProtocolError::InvariantViolated);
+        invariant!(claim_amount > 0, ProtocolError::ClaimError);
 
         let seeds: &[&[&[u8]]] = escrow_seeds!(self.escrow);
 
@@ -49,8 +49,11 @@ impl<'info> Claim<'info> {
             claim_amount,
         )?;
 
-        self.nft_receipt
-            .update_receipt(&mut self.locker, &mut self.escrow, claim_amount)?;
+        let locker = &mut self.locker;
+        let escrow = &mut self.escrow;
+        let nft_receipt = &mut self.nft_receipt;
+
+        nft_receipt.update_receipt(locker, escrow, claim_amount)?;
 
         Ok(())
     }
@@ -89,7 +92,7 @@ impl<'info> Validate<'info> for Claim<'info> {
             ProtocolError::InvalidToken
         );
         invariant!(
-            self.escrow.receipt_count > 0,
+            self.escrow.receipt_count > self.nft_receipt.receipt_id,
             ProtocolError::InvariantViolated
         );
 

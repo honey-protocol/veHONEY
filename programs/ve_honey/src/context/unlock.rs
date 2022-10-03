@@ -2,7 +2,7 @@ use crate::*;
 use anchor_spl::token::{self, Token, TokenAccount};
 
 #[derive(Accounts)]
-pub struct Exit<'info> {
+pub struct Unlock<'info> {
     /// Payer.
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -10,7 +10,7 @@ pub struct Exit<'info> {
     #[account(mut)]
     pub locker: Box<Account<'info, Locker>>,
     /// [Escrow] that is being exited.
-    #[account(mut, has_one = locker)]
+    #[account(mut)]
     pub escrow: Box<Account<'info, Escrow>>,
     /// Authority of the [Escrow].
     pub escrow_owner: Signer<'info>,
@@ -25,11 +25,11 @@ pub struct Exit<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-impl<'info> Exit<'info> {
-    pub fn process(&mut self, ra: &[AccountInfo]) -> Result<()> {
-        let unlock_amount = self.check_receipts(ra)?;
+impl<'info> Unlock<'info> {
+    pub fn process(&mut self) -> Result<()> {
+        let unlock_amount = self.escrow.unlock_amount()?;
 
-        invariant!(unlock_amount > 0, ProtocolError::InvariantViolated);
+        invariant!(unlock_amount > 0, ProtocolError::EscrowNoBalance);
 
         let seeds: &[&[&[u8]]] = escrow_seeds!(self.escrow);
 
@@ -61,42 +61,9 @@ impl<'info> Exit<'info> {
 
         Ok(())
     }
-
-    // check receipts and return the amount to unlock.
-    fn check_receipts(&self, ra: &[AccountInfo]) -> Result<u64> {
-        let receipt_count = self.escrow.receipt_count;
-
-        invariant!(
-            receipt_count as usize == ra.len(),
-            ProtocolError::InvalidRemainingAccounts
-        );
-
-        let mut remaining_amount: u64 = 0;
-        let accounts_iter = &mut ra.iter();
-        let mut receipt_ids: Vec<u64> = vec![];
-        for _ in 0..receipt_count {
-            let receipt_info = next_account_info(accounts_iter)?;
-            let receipt = Account::<NftReceipt>::try_from(receipt_info)?;
-            assert_keys_eq!(
-                receipt.owner,
-                self.escrow_owner,
-                ProtocolError::InvalidAccountOwner
-            );
-            assert_keys_eq!(receipt.locker, self.locker, ProtocolError::InvalidLocker);
-            invariant!(!receipt_ids.contains(&receipt.receipt_id));
-            receipt_ids.push(receipt.receipt_id);
-            remaining_amount = unwrap_int!(remaining_amount.checked_add(
-                receipt.get_claim_amount_at(&self.locker.params, receipt.vest_ends_at)?
-            ))
-        }
-
-        let unlock_amount = unwrap_int!(self.escrow.amount.checked_sub(remaining_amount));
-
-        Ok(unlock_amount)
-    }
 }
 
-impl<'info> Validate<'info> for Exit<'info> {
+impl<'info> Validate<'info> for Unlock<'info> {
     fn validate(&self) -> Result<()> {
         assert_keys_eq!(
             self.locker,
@@ -104,13 +71,13 @@ impl<'info> Validate<'info> for Exit<'info> {
             ProtocolError::InvalidLocker
         );
         assert_keys_eq!(
-            self.escrow.owner,
             self.escrow_owner,
+            self.escrow.owner,
             ProtocolError::InvalidAccountOwner
         );
         assert_keys_eq!(
-            self.escrow.tokens,
             self.locked_tokens,
+            self.escrow.tokens,
             ProtocolError::InvalidToken
         );
         assert_keys_neq!(

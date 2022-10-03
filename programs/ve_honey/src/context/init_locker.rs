@@ -12,7 +12,10 @@ pub struct InitLocker<'info> {
     /// [Locker].
     #[account(
         init,
-        seeds = [LOCKER_SEED.as_bytes(), base.key().as_ref()],
+        seeds = [
+            LOCKER_SEED.as_bytes(),
+            base.key().as_ref()
+        ],
         bump,
         space = 8 + Locker::LEN,
         payer = payer

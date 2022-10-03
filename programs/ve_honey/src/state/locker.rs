@@ -79,31 +79,34 @@ impl LockerParams {
         Some(power)
     }
 
-    pub fn calculate_reward_amount(&self, duration: i64) -> Result<u64> {
-        let mut duration = duration;
-        let mut amount: u64 = 0;
+    pub fn calculate_reward_amount(&self, duration: i64) -> Option<u64> {
+        if duration <= 0 {
+            return None;
+        }
+
+        let mut duration: u64 = duration as u64;
+        let mut reward_amount: u64 = 0;
         let mut count: u8 = 0;
         let mut amount_per_unit = self.nft_stake_base_reward;
 
-        while duration - self.nft_stake_duration_unit >= 0 {
+        while let Some(next_duration) = duration.checked_sub(self.nft_stake_duration_unit as u64) {
             if count >= self.nft_reward_halving_starts_at {
-                amount_per_unit = unwrap_int!(amount_per_unit.checked_div(2));
+                amount_per_unit /= 2;
             }
-            amount = unwrap_int!(amount.checked_add(amount_per_unit));
-            duration = unwrap_int!(duration.checked_sub(self.nft_stake_duration_unit));
+            reward_amount = reward_amount.checked_add(amount_per_unit)?;
             count += 1;
+            duration = next_duration;
         }
 
-        Ok(amount)
+        Some(reward_amount)
     }
 
-    pub fn calculate_nft_max_stake_duration(&self) -> Result<i64> {
-        Ok(unwrap_int!(self
-            .nft_stake_duration_unit
-            .checked_mul(self.nft_stake_duration_count as i64)))
+    pub fn calculate_nft_max_stake_duration(&self) -> Option<i64> {
+        self.nft_stake_duration_unit
+            .checked_mul(self.nft_stake_duration_count as i64)
     }
 
-    pub fn calculate_max_reward_amount(&self) -> Result<u64> {
+    pub fn calculate_max_reward_amount(&self) -> Option<u64> {
         self.calculate_reward_amount(self.calculate_nft_max_stake_duration()?)
     }
 }

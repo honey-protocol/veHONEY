@@ -5,7 +5,6 @@ use mpl_token_metadata::state::{Metadata, TokenMetadataAccount};
 use num_traits::ToPrimitive;
 
 #[derive(Accounts)]
-#[instruction(receipt_id: u64)]
 pub struct LockNft<'info> {
     /// payer of the initialization of [NftVault].
     #[account(mut)]
@@ -21,12 +20,13 @@ pub struct LockNft<'info> {
         init,
         seeds = [
             NFT_RECEIPT_SEED.as_bytes(),
-            escrow.key().as_ref(),
-            receipt_id.to_le_bytes().as_ref(),
+            locker.key().as_ref(),
+            escrow_owner.key().as_ref(),
+            escrow.receipt_count.to_le_bytes().as_ref(),
         ],
         bump,
-        payer = payer,
         space = 8 + NftReceipt::LEN,
+        payer = payer,
     )]
     pub receipt: Box<Account<'info, NftReceipt>>,
     /// Authority of the [Escrow].
@@ -50,18 +50,21 @@ pub struct LockNft<'info> {
 }
 
 impl<'info> LockNft<'info> {
-    pub fn process(&mut self, receipt_id: u64, duration: i64) -> Result<()> {
-        if duration < self.locker.params.calculate_nft_max_stake_duration()? {
-            return Err(error!(ProtocolError::VestingDurationExceeded));
-        }
+    pub fn process(&mut self, duration: i64) -> Result<()> {
+        let max_stake_duration = unwrap_int!(self.locker.params.calculate_nft_max_stake_duration());
+
+        invariant!(
+            duration >= max_stake_duration,
+            ProtocolError::LockupDurationTooShort
+        );
 
         let receipt = &mut self.receipt;
 
-        receipt.receipt_id = receipt_id;
+        receipt.receipt_id = self.escrow.receipt_count;
         receipt.locker = self.locker.key();
         receipt.owner = self.escrow_owner.key();
         receipt.vest_started_at = Clock::get()?.unix_timestamp;
-        receipt.vest_ends_at = unwrap_int!(receipt.vest_started_at.checked_add(duration));
+        receipt.vest_ends_at = unwrap_int!(receipt.vest_started_at.checked_add(max_stake_duration));
         receipt.claimed_amount = 0;
 
         let prev_escrow_ends_at = self.escrow.escrow_ends_at;
@@ -74,15 +77,23 @@ impl<'info> LockNft<'info> {
             return Err(error!(ProtocolError::RefreshCannotShorten));
         }
 
-        let seeds = &[
-            LOCKER_SEED.as_bytes(),
-            &self.locker.base.to_bytes()[..32],
-            &[self.locker.bump],
-        ];
+        let max_reward_amount = unwrap_int!(self.locker.params.calculate_max_reward_amount());
+        let seeds: &[&[&[u8]]] = locker_seeds!(self.locker);
 
-        let max_reward_amount = self.locker.params.calculate_max_reward_amount()?;
-
-        token::transfer(self.to_transfer_context(&[&seeds[..]]), max_reward_amount)?;
+        if max_reward_amount > 0 {
+            token::transfer(
+                CpiContext::new(
+                    self.token_program.to_account_info(),
+                    Transfer {
+                        from: self.locker_treasury.to_account_info(),
+                        to: self.locked_tokens.to_account_info(),
+                        authority: self.locker.to_account_info(),
+                    },
+                )
+                .with_signer(seeds),
+                max_reward_amount,
+            )?;
+        }
 
         let locker = &mut self.locker;
         let escrow = &mut self.escrow;
@@ -97,21 +108,6 @@ impl<'info> LockNft<'info> {
 
         Ok(())
     }
-
-    fn to_transfer_context<'a, 'b, 'c>(
-        &self,
-        signer: &'a [&'b [&'c [u8]]],
-    ) -> CpiContext<'a, 'b, 'c, 'info, Transfer<'info>> {
-        CpiContext::new(
-            self.token_program.to_account_info(),
-            Transfer {
-                from: self.locker_treasury.to_account_info(),
-                to: self.locked_tokens.to_account_info(),
-                authority: self.locker.to_account_info(),
-            },
-        )
-        .with_signer(signer)
-    }
 }
 
 fn assert_valid_metadata(
@@ -119,7 +115,11 @@ fn assert_valid_metadata(
     metadata_program: &Pubkey,
     mint: &Pubkey,
 ) -> Result<Metadata> {
-    assert_eq!(metadata.owner, metadata_program);
+    assert_keys_eq!(
+        *metadata.owner,
+        *metadata_program,
+        ProtocolError::InvalidProgramId
+    );
 
     let seed = &[
         b"metadata".as_ref(),
@@ -128,7 +128,11 @@ fn assert_valid_metadata(
     ];
 
     let (metadata_addr, _bump) = Pubkey::find_program_address(seed, metadata_program);
-    assert_eq!(metadata.key(), metadata_addr);
+    assert_keys_eq!(
+        metadata.key(),
+        metadata_addr,
+        ProtocolError::MetadataMismatch
+    );
 
     Metadata::from_account_info(metadata).map_err(Into::into)
 }
@@ -245,12 +249,11 @@ fn burn_nft<'info>(ctx: &Context<'_, '_, '_, 'info, LockNft<'info>>) -> Result<(
 
 pub fn handler<'info>(
     ctx: Context<'_, '_, '_, 'info, LockNft<'info>>,
-    receipt_id: u64,
     duration: i64,
 ) -> Result<()> {
     check_accounts(&ctx)?;
 
-    ctx.accounts.process(receipt_id, duration)?;
+    ctx.accounts.process(duration)?;
 
     burn_nft(&ctx)?;
 
@@ -260,29 +263,19 @@ pub fn handler<'info>(
 impl<'info> Validate<'info> for LockNft<'info> {
     fn validate(&self) -> Result<()> {
         assert_keys_eq!(
-            self.escrow.locker,
             self.locker,
+            self.escrow.locker,
             ProtocolError::InvalidLocker
         );
         assert_keys_eq!(
-            self.escrow.tokens,
             self.locked_tokens,
+            self.escrow.tokens,
             ProtocolError::InvalidToken
         );
         assert_keys_eq!(
-            self.escrow.owner,
             self.escrow_owner,
+            self.escrow.owner,
             ProtocolError::InvalidAccountOwner
-        );
-        assert_keys_eq!(
-            self.locker_treasury.owner,
-            self.locker,
-            ProtocolError::InvalidTokenOwner
-        );
-        assert_keys_eq!(
-            self.locker_treasury.mint,
-            self.locker.token_mint,
-            ProtocolError::InvalidLockerMint
         );
 
         Ok(())

@@ -83,10 +83,9 @@ pub mod ve_honey {
     #[access_control(ctx.accounts.validate())]
     pub fn lock_nft<'info>(
         ctx: Context<'_, '_, '_, 'info, LockNft<'info>>,
-        receipt_id: u64,
         duration: i64,
     ) -> Result<()> {
-        lock_nft::handler(ctx, receipt_id, duration)?;
+        lock_nft::handler(ctx, duration)?;
         Ok(())
     }
 
@@ -97,8 +96,8 @@ pub mod ve_honey {
     }
 
     #[access_control(ctx.accounts.validate())]
-    pub fn exit(ctx: Context<Exit>) -> Result<()> {
-        ctx.accounts.process(ctx.remaining_accounts)?;
+    pub fn unlock(ctx: Context<Unlock>) -> Result<()> {
+        ctx.accounts.process()?;
         Ok(())
     }
 

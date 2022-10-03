@@ -60,6 +60,7 @@ export type CheckEscrowArgs = {
   escrowStartedAt: anchor.BN;
   escrowEndsAt: anchor.BN;
   receiptCount: anchor.BN;
+  amountToReceipt: anchor.BN;
   voteDelegate: PublicKey;
 };
 

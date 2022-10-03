@@ -14,6 +14,7 @@ pub enum ProtocolError {
     InvalidProof,
     InvalidGovernorParams,
     InvalidVoteDelegate,
+    InvalidProgramId,
 
     EscrowNotEnded = 1100,
     EscrowExpired,
@@ -22,6 +23,9 @@ pub enum ProtocolError {
     LockupDurationTooShort,
     LockupDurationTooLong,
     RefreshCannotShorten,
+    ClaimError,
+    CloseNonZeroReceipt,
+    ReceiptCountError,
     ReceiptNotEnded,
 
     MustProvideWhitelist = 1200,
@@ -34,12 +38,10 @@ pub enum ProtocolError {
     SmartWalletMismatch,
     ProposalMismatch,
     VoterMismatch,
+    MetadataMismatch,
     ProposalMustBeActive,
     InsufficientVotingPower,
     LockedSupplyMismatch,
 
     InvariantViolated = 1400,
-
-    VestingDurationExceeded = 1500,
-    NotClaimable,
 }

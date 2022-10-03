@@ -43,6 +43,8 @@ impl<'info> InitEscrow<'info> {
         escrow.escrow_started_at = 0;
         escrow.escrow_ends_at = 0;
         escrow.receipt_count = 0;
+        escrow.amount_to_receipt = 0;
+
         escrow.vote_delegate = self.escrow_owner.key();
 
         emit!(InitEscrowEvent {

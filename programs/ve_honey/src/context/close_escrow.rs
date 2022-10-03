@@ -5,7 +5,6 @@ use anchor_spl::token::{self, Token, TokenAccount};
 #[derive(Accounts)]
 pub struct CloseEscrow<'info> {
     /// the [Locker].
-    #[account(mut)]
     pub locker: Box<Account<'info, Locker>>,
     /// the [Escrow] that is being closed
     #[account(mut, close = funds_receiver)]
@@ -15,11 +14,7 @@ pub struct CloseEscrow<'info> {
     /// tokens locked up in the [Locker].
     #[account(mut)]
     pub locked_tokens: Box<Account<'info, TokenAccount>>,
-    /// destination for the tokens to unlock
-    #[account(mut)]
-    pub destination_tokens: Box<Account<'info, TokenAccount>>,
-    /// funds receiver
-    /// CHECK:
+    /// CHECK: funds receiver
     #[account(mut)]
     pub funds_receiver: UncheckedAccount<'info>,
 
@@ -30,21 +25,6 @@ pub struct CloseEscrow<'info> {
 impl<'info> CloseEscrow<'info> {
     pub fn process(&mut self) -> Result<()> {
         let seeds: &[&[&[u8]]] = escrow_seeds!(self.escrow);
-
-        if self.escrow.amount > 0 {
-            token::transfer(
-                CpiContext::new(
-                    self.token_program.to_account_info(),
-                    token::Transfer {
-                        from: self.locked_tokens.to_account_info(),
-                        to: self.destination_tokens.to_account_info(),
-                        authority: self.escrow.to_account_info(),
-                    },
-                )
-                .with_signer(seeds),
-                self.escrow.amount,
-            )?;
-        }
 
         token::close_account(
             CpiContext::new(
@@ -58,9 +38,6 @@ impl<'info> CloseEscrow<'info> {
             .with_signer(seeds),
         )?;
 
-        self.locker.locked_supply =
-            unwrap_int!(self.locker.locked_supply.checked_sub(self.escrow.amount));
-
         Ok(())
     }
 }
@@ -73,24 +50,14 @@ impl<'info> Validate<'info> for CloseEscrow<'info> {
             ProtocolError::InvalidLocker
         );
         assert_keys_eq!(
-            self.escrow.owner,
             self.escrow_owner,
+            self.escrow.owner,
             ProtocolError::InvalidAccountOwner
         );
         assert_keys_eq!(
+            self.locked_tokens,
             self.escrow.tokens,
-            self.locked_tokens,
             ProtocolError::InvalidToken
-        );
-        assert_keys_neq!(
-            self.locked_tokens,
-            self.destination_tokens,
-            ProtocolError::InvalidToken
-        );
-        assert_keys_eq!(
-            self.locked_tokens.mint,
-            self.destination_tokens.mint,
-            ProtocolError::InvalidLockerMint
         );
         let now = Clock::get()?.unix_timestamp;
         msg!(
@@ -102,10 +69,7 @@ impl<'info> Validate<'info> for CloseEscrow<'info> {
             self.escrow.escrow_ends_at < now,
             ProtocolError::EscrowNotEnded
         );
-        invariant!(
-            self.escrow.receipt_count == 0,
-            ProtocolError::InvariantViolated
-        );
+        invariant!(self.escrow.amount == 0, ProtocolError::EscrowInUse);
 
         Ok(())
     }

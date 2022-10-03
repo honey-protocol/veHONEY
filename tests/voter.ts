@@ -81,6 +81,7 @@ describe("locked voters", () => {
       escrowStartedAt: new anchor.BN(0),
       escrowEndsAt: new anchor.BN(0),
       receiptCount: new anchor.BN(0),
+      amountToReceipt: new anchor.BN(0),
       voteDelegate: user.wallet.publicKey,
     });
   });
@@ -124,6 +125,7 @@ describe("locked voters", () => {
       escrowStartedAt: new anchor.BN(0),
       escrowEndsAt: new anchor.BN(0),
       receiptCount: new anchor.BN(0),
+      amountToReceipt: new anchor.BN(0),
       voteDelegate: user.voteDelegate.publicKey,
     });
   });
@@ -261,6 +263,7 @@ describe("locked voters", () => {
       escrowStartedAt: escrow.escrowStartedAt,
       escrowEndsAt: escrow.escrowEndsAt,
       receiptCount: new anchor.BN(0),
+      amountToReceipt: new anchor.BN(0),
       voteDelegate: user.wallet.publicKey,
     });
     checkTokenAccount({
@@ -339,6 +342,7 @@ describe("locked voters", () => {
       escrowStartedAt: escrow.escrowStartedAt,
       escrowEndsAt: escrow.escrowEndsAt,
       receiptCount: new anchor.BN(0),
+      amountToReceipt: new anchor.BN(0),
       voteDelegate: user1.wallet.publicKey,
     });
     checkTokenAccount({
@@ -372,6 +376,7 @@ describe("locked voters", () => {
       escrowStartedAt: escrow.escrowStartedAt,
       escrowEndsAt: escrow.escrowEndsAt,
       receiptCount: new anchor.BN(0),
+      amountToReceipt: new anchor.BN(0),
       voteDelegate: user2.wallet.publicKey,
     });
     checkTokenAccount({
@@ -405,6 +410,7 @@ describe("locked voters", () => {
       escrowStartedAt: escrow.escrowStartedAt,
       escrowEndsAt: escrow.escrowEndsAt,
       receiptCount: new anchor.BN(0),
+      amountToReceipt: new anchor.BN(0),
       voteDelegate: user3.wallet.publicKey,
     });
     checkTokenAccount({
@@ -485,8 +491,9 @@ describe("NFT locked voter", () => {
       new anchor.web3.PublicKey(nft.metadata.data.data.creators.at(0).address)
     );
 
+    const receiptId = 0;
+
     await user.lockNft({
-      receiptId: new anchor.BN(1),
       duration: new anchor.BN(20),
       nft,
     });
@@ -521,7 +528,8 @@ describe("NFT locked voter", () => {
       amount: rewardAmount,
       escrowStartedAt: escrow.escrowStartedAt,
       escrowEndsAt: escrow.escrowEndsAt,
-      receiptCount: new anchor.BN(1),
+      receiptCount: new anchor.BN(receiptId + 1),
+      amountToReceipt: new anchor.BN(rewardAmount),
       voteDelegate: user.wallet.publicKey,
     });
 
@@ -540,11 +548,11 @@ describe("NFT locked voter", () => {
     assert.strictEqual(userNft, null);
 
     const receipts = await user.fetchReceipts();
-    const receipt = receipts.find((r) => r.account.receiptId.eqn(1));
+    const receipt = receipts.find((r) => r.account.receiptId.eqn(receiptId));
 
     checkNftReceipt({
       account: receipt.account,
-      receiptId: new anchor.BN(1),
+      receiptId: new anchor.BN(receiptId),
       locker: governor.locker,
       owner: user.wallet.publicKey,
       claimedAmount: new anchor.BN(0),
@@ -568,17 +576,16 @@ describe("NFT locked voter", () => {
       new anchor.web3.PublicKey(nft.metadata.data.data.creators.at(0).address)
     );
 
-    const receiptId = new anchor.BN(1);
+    const receiptId = 0;
 
     await user.lockNft({
-      receiptId,
       duration: new anchor.BN(20),
       nft,
     });
 
     await sleep(2000);
 
-    await user.claimNftReward(receiptId);
+    await user.claimNftReward(new anchor.BN(receiptId));
 
     const [escrow, lockedTokens, userToken] = await Promise.all([
       user.fetchEscrow(),
@@ -588,7 +595,7 @@ describe("NFT locked voter", () => {
 
     const receipt = (await user.fetchReceipts()).find(
       (r) =>
-        r.account.receiptId.eqn(1) &&
+        r.account.receiptId.eqn(receiptId) &&
         r.account.owner.equals(user.wallet.publicKey)
     );
 
@@ -604,7 +611,8 @@ describe("NFT locked voter", () => {
       amount: remainingAmount,
       escrowStartedAt: escrow.escrowStartedAt,
       escrowEndsAt: escrow.escrowEndsAt,
-      receiptCount: new anchor.BN(1),
+      receiptCount: new anchor.BN(receiptId + 1),
+      amountToReceipt: remainingAmount,
       voteDelegate: user.wallet.publicKey,
     });
 
@@ -622,7 +630,7 @@ describe("NFT locked voter", () => {
 
     checkNftReceipt({
       account: receipt.account,
-      receiptId,
+      receiptId: new anchor.BN(receiptId),
       locker: governor.locker,
       owner: user.wallet.publicKey,
       claimedAmount: claimAmount,
@@ -646,17 +654,16 @@ describe("NFT locked voter", () => {
       new anchor.web3.PublicKey(nft.metadata.data.data.creators.at(0).address)
     );
 
-    const receiptId = new anchor.BN(1);
+    const receiptId = 0;
 
     await user.lockNft({
-      receiptId,
       duration: new anchor.BN(20),
       nft,
     });
 
     await sleep(21000);
 
-    await user.claimNftReward(receiptId);
+    await user.claimNftReward(new anchor.BN(receiptId));
 
     let [escrow, lockedTokens, userToken] = await Promise.all([
       user.fetchEscrow(),
@@ -666,7 +673,7 @@ describe("NFT locked voter", () => {
 
     const receipt = (await user.fetchReceipts()).find(
       (r) =>
-        r.account.receiptId.eqn(1) &&
+        r.account.receiptId.eqn(receiptId) &&
         r.account.owner.equals(user.wallet.publicKey)
     );
 
@@ -682,7 +689,8 @@ describe("NFT locked voter", () => {
       amount: remainingAmount,
       escrowStartedAt: escrow.escrowStartedAt,
       escrowEndsAt: escrow.escrowEndsAt,
-      receiptCount: new anchor.BN(1),
+      receiptCount: new anchor.BN(receiptId + 1),
+      amountToReceipt: remainingAmount,
       voteDelegate: user.wallet.publicKey,
     });
 
@@ -700,13 +708,14 @@ describe("NFT locked voter", () => {
 
     checkNftReceipt({
       account: receipt.account,
-      receiptId,
+      receiptId: new anchor.BN(receiptId),
       locker: governor.locker,
       owner: user.wallet.publicKey,
       claimedAmount: claimAmount,
     });
 
-    await user.closeEscrow([receiptId]);
+    await user.closeReceipt(new anchor.BN(receiptId));
+    await user.closeEscrow();
 
     [escrow, lockedTokens] = await Promise.all([
       user.fetchEscrow(),

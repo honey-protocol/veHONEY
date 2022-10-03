@@ -307,7 +307,7 @@ export class MockUser {
       );
     }
 
-    let txBuilder = this.veHoneyProgram.methods.exit().accounts({
+    let txBuilder = this.veHoneyProgram.methods.unlock().accounts({
       payer: this.wallet.publicKey,
       locker: this.governor.locker,
       escrow: this.escrow,
@@ -324,7 +324,7 @@ export class MockUser {
     return await txBuilder.transaction();
   }
 
-  private async createCloseEscrowTx(receitps?: anchor.BN[]) {
+  private async createCloseEscrowTx() {
     let destination = await this.tokenMint.getAssociatedTokenAddress(
       this.wallet.publicKey
     );
@@ -347,12 +347,6 @@ export class MockUser {
       );
     }
 
-    if (receitps) {
-      for (let i = 0; i < receitps.length; i++) {
-        preInstructions.push(await this.createCloseNftReceiptIx(receitps[i]));
-      }
-    }
-
     return await this.veHoneyProgram.methods
       .closeEscrow()
       .accounts({
@@ -360,7 +354,6 @@ export class MockUser {
         escrow: this.escrow,
         escrowOwner: this.wallet.publicKey,
         lockedTokens: await this.getLockedTokensAddress(),
-        destinationTokens: destination,
         fundsReceiver: this.wallet.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
@@ -368,7 +361,20 @@ export class MockUser {
       .transaction();
   }
 
-  private async createLockNftTx({ receiptId, duration, nft }: LockNftArgs) {
+  private async createCloseReceiptTx(receiptId: anchor.BN) {
+    return await this.veHoneyProgram.methods
+      .closeReceipt()
+      .accounts({
+        locker: this.governor.locker,
+        escrow: this.escrow,
+        nftReceipt: await this.getReceiptAddress(receiptId),
+        escrowOwner: this.wallet.publicKey,
+        fundsReceiver: this.wallet.publicKey,
+      })
+      .transaction();
+  }
+
+  private async createLockNftTx({ duration, nft }: LockNftArgs) {
     const creator = new PublicKey(
       nft.metadata.data.data.creators.at(0).address
     );
@@ -430,13 +436,18 @@ export class MockUser {
       );
     }
 
+    const escrowAccount = await this.fetchEscrow();
+    if (!escrowAccount) {
+      throw new Error("escrow undefined");
+    }
+
     return await this.veHoneyProgram.methods
-      .lockNft(receiptId, duration)
+      .lockNft(duration)
       .accounts({
         payer: this.wallet.publicKey,
         locker: this.governor.locker,
-        receipt: await this.getReceiptAddress(receiptId),
         escrow: this.escrow,
+        receipt: await this.getReceiptAddress(escrowAccount.receiptCount),
         escrowOwner: this.wallet.publicKey,
         lockedTokens: await this.getLockedTokensAddress(),
         lockerTreasury: await this.governor.getTreasuryAddress(),
@@ -556,8 +567,8 @@ export class MockUser {
     return sig;
   }
 
-  public async lockNft({ receiptId, duration, nft }: LockNftArgs) {
-    const tx = await this.createLockNftTx({ receiptId, duration, nft });
+  public async lockNft({ duration, nft }: LockNftArgs) {
+    const tx = await this.createLockNftTx({ duration, nft });
     const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
       skipPreflight: true,
     });
@@ -580,8 +591,16 @@ export class MockUser {
     return sig;
   }
 
-  public async closeEscrow(receipts?: anchor.BN[]) {
-    const tx = await this.createCloseEscrowTx(receipts);
+  public async closeEscrow() {
+    const tx = await this.createCloseEscrowTx();
+    const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
+      skipPreflight: true,
+    });
+    return sig;
+  }
+
+  public async closeReceipt(receiptId: anchor.BN) {
+    const tx = await this.createCloseReceiptTx(receiptId);
     const sig = await this.provider.sendAndConfirm(tx, [this.wallet.payer], {
       skipPreflight: true,
     });
@@ -637,7 +656,8 @@ export class MockUser {
     const [address] = await PublicKey.findProgramAddress(
       [
         Buffer.from(constants.NFT_RECEIPT_SEED),
-        this.escrow.toBuffer(),
+        this.governor.locker.toBuffer(),
+        this.wallet.publicKey.toBuffer(),
         receiptId.toBuffer("le", 8),
       ],
       this.veHoneyProgram.programId
@@ -693,7 +713,6 @@ export type LockArgs = {
 };
 
 export type LockNftArgs = {
-  receiptId: anchor.BN;
   duration: anchor.BN;
   nft: MockNFT;
 };

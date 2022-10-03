@@ -207,10 +207,9 @@ export class MockGovernor {
     return await this.veHoneyProgram.methods
       .removeProof()
       .accounts({
-        payer: this.wallet.publicKey,
         locker: this.locker,
         proof: await this.getProofAddress(address),
-        address,
+        fundsReceiver: this.wallet.publicKey,
         governor: this.governor.governorKey,
         smartWallet: this.smartWallet.key,
       })

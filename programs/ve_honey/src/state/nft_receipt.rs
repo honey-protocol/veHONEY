@@ -26,21 +26,29 @@ impl NftReceipt {
         escrow: &mut Escrow,
         claim_amount: u64,
     ) -> Result<()> {
-        invariant!(claim_amount > 0, ProtocolError::InvariantViolated);
-
         locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(claim_amount));
         escrow.amount = unwrap_int!(escrow.amount.checked_sub(claim_amount));
+        escrow.amount_to_receipt = unwrap_int!(escrow.amount_to_receipt.checked_sub(claim_amount));
 
         self.claimed_amount = unwrap_int!(self.claimed_amount.checked_add(claim_amount));
 
         Ok(())
     }
 
-    pub fn get_claim_amount_at(&self, locker: &LockerParams, timestamp: i64) -> Result<u64> {
+    pub fn calculate_reward_amount_at_time(
+        &self,
+        locker: &LockerParams,
+        timestamp: i64,
+    ) -> Option<u64> {
         let due = timestamp.min(self.vest_ends_at);
-        let duration = unwrap_int!(due.checked_sub(self.vest_started_at));
-        let reward_amount = locker.calculate_reward_amount(duration)?;
+        let duration = due.checked_sub(self.vest_started_at)?;
 
-        Ok(unwrap_int!(reward_amount.checked_sub(self.claimed_amount)))
+        locker
+            .calculate_reward_amount(duration)?
+            .checked_sub(self.claimed_amount)
+    }
+
+    pub fn calculate_remaining_reward_amount(&self, locker: &LockerParams) -> Option<u64> {
+        self.calculate_reward_amount_at_time(locker, self.vest_ends_at)
     }
 }
