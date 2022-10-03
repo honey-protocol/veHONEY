@@ -55,6 +55,7 @@ export class MockGovernor {
 
   lockerBase: Keypair;
   tokenMint: MockMint;
+  wlTokenMint: MockMint;
   lockerParams: LockerParams;
 
   governorBase: Keypair;
@@ -65,6 +66,7 @@ export class MockGovernor {
   constructor({
     provider,
     tokenMint,
+    wlTokenMint,
     lockerParams,
     governorParams,
   }: MockGovernorArgs) {
@@ -73,6 +75,7 @@ export class MockGovernor {
     this.stakeProgram = anchor.workspace.Stake as Program<Stake>;
     this.lockerBase = Keypair.generate();
     this.tokenMint = tokenMint;
+    this.wlTokenMint = wlTokenMint;
     this.lockerParams = lockerParams;
     this.governorBase = Keypair.generate();
     this.governorParams = governorParams;
@@ -122,6 +125,7 @@ export class MockGovernor {
         base: this.lockerBase.publicKey,
         locker: this.locker,
         tokenMint: this.tokenMint.address,
+        wlTokenMint: this.wlTokenMint.address,
         governor: this.governor.governorKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -216,6 +220,31 @@ export class MockGovernor {
       .instruction();
   }
 
+  private async createSetWlMintAuthorityTx() {
+    return await this.veHoneyProgram.methods
+      .setWlMintAuthority()
+      .accounts({
+        locker: this.locker,
+        wlTokenMint: this.wlTokenMint.address,
+        currentAuthority: this.wlTokenMint.payer.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .transaction();
+  }
+
+  private async createReclaimWlMintAuthorityIx(mintAuthority: PublicKey) {
+    return await this.veHoneyProgram.methods
+      .reclaimWlMintAuthority(mintAuthority)
+      .accounts({
+        locker: this.locker,
+        wlTokenMint: this.wlTokenMint.address,
+        governor: this.governor.governorKey,
+        smartWallet: this.smartWallet.key,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .instruction();
+  }
+
   public static async create(args: MockGovernorArgs) {
     const governor = new MockGovernor(args);
     await governor.init();
@@ -275,6 +304,25 @@ export class MockGovernor {
 
   public async removeProof(address: PublicKey) {
     const ix = await this.createRemoveProofIx(address);
+    return await this.executeTransactionBySmartWallet({
+      provider: this.governorSDK.provider,
+      smartWalletWrapper: this.smartWallet,
+      instructions: [ix],
+    });
+  }
+
+  public async setWlMintAuthority() {
+    const tx = await this.createSetWlMintAuthorityTx();
+    const sig = await this.provider.sendAndConfirm(
+      tx,
+      [this.wlTokenMint.payer],
+      { skipPreflight: true }
+    );
+    return sig;
+  }
+
+  public async reclaimWlMintAuthority(mintAuthority: PublicKey) {
+    const ix = await this.createReclaimWlMintAuthorityIx(mintAuthority);
     return await this.executeTransactionBySmartWallet({
       provider: this.governorSDK.provider,
       smartWalletWrapper: this.smartWallet,
@@ -421,6 +469,7 @@ export type GovernorParams = {
 export type MockGovernorArgs = {
   provider: AnchorProvider;
   tokenMint: MockMint;
+  wlTokenMint: MockMint;
   lockerParams?: LockerParams;
   governorParams?: GovernorParams;
 };

@@ -5,6 +5,7 @@ use crate::*;
 pub enum ProtocolError {
     InvalidLocker = 1000,
     InvalidLockerMint,
+    InvalidLockerWLMint,
     InvalidAccountOwner,
     InvalidTokenOwner,
     InvalidToken,

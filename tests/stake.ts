@@ -20,7 +20,6 @@ import { sleep } from "./utils/util";
 describe("stake pool management", () => {
   const provider = AnchorProvider.env();
   anchor.setProvider(provider);
-  const program = anchor.workspace.Stake as Program<Stake>;
 
   let version: number = constants.STAKE_POOL_VERSION;
   let pTokenMint: MockMint;

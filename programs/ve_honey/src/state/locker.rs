@@ -13,6 +13,8 @@ pub struct Locker {
     pub token_mint: Pubkey,
     /// Total number of tokens locked in the escrow.
     pub locked_supply: u64,
+    /// Mint of the WL token that is minted against burning NFT.
+    pub wl_token_mint: Pubkey,
 
     /// Governor of the [Locker].
     pub governor: Pubkey,
@@ -22,7 +24,8 @@ pub struct Locker {
 }
 
 impl Locker {
-    pub const LEN: usize = PUBKEY_BYTES + 1 + PUBKEY_BYTES + 8 + PUBKEY_BYTES + LockerParams::LEN;
+    pub const LEN: usize =
+        PUBKEY_BYTES + 1 + PUBKEY_BYTES + 8 + PUBKEY_BYTES + PUBKEY_BYTES + LockerParams::LEN;
 }
 
 #[derive(AnchorDeserialize, AnchorSerialize, Default, Debug, Clone, Copy, PartialEq, Eq)]

@@ -68,6 +68,21 @@ pub mod ve_honey {
     }
 
     #[access_control(ctx.accounts.validate())]
+    pub fn set_wl_mint_authority(ctx: Context<SetWLMintAuthority>) -> Result<()> {
+        ctx.accounts.process()?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
+    pub fn reclaim_wl_mint_authority(
+        ctx: Context<ReclaimWLMintAuthority>,
+        mint_authority: Pubkey,
+    ) -> Result<()> {
+        ctx.accounts.process(mint_authority)?;
+        Ok(())
+    }
+
+    #[access_control(ctx.accounts.validate())]
     pub fn lock<'info>(
         ctx: Context<'_, '_, '_, 'info, Lock<'info>>,
         amount: u64,

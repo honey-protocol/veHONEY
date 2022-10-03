@@ -13,6 +13,7 @@ pub mod set_params;
 pub mod set_vote_delegate;
 pub mod unlock;
 pub mod whitelist;
+pub mod wl_token;
 
 pub use activate_proposal::*;
 pub use cast_vote::*;
@@ -29,3 +30,4 @@ pub use set_params::*;
 pub use set_vote_delegate::*;
 pub use unlock::*;
 pub use whitelist::*;
+pub use wl_token::*;

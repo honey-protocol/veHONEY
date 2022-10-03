@@ -23,6 +23,8 @@ pub struct InitLocker<'info> {
     pub locker: Box<Account<'info, Locker>>,
     /// Mint of the token that can be used to join the [Locker].
     pub token_mint: Box<Account<'info, Mint>>,
+    /// Mint of the token that can be used to mint against burning NFT.
+    pub wl_token_mint: Box<Account<'info, Mint>>,
     /// [Governor] associated with the [Locker].
     pub governor: Box<Account<'info, Governor>>,
 
@@ -34,6 +36,7 @@ impl<'info> InitLocker<'info> {
     pub fn process(&mut self, bump: u8, params: LockerParams) -> Result<()> {
         let locker = &mut self.locker;
         locker.token_mint = self.token_mint.key();
+        locker.wl_token_mint = self.wl_token_mint.key();
         locker.governor = self.governor.key();
         locker.base = self.base.key();
         locker.bump = bump;

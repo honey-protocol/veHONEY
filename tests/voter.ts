@@ -23,6 +23,7 @@ describe("locked voters", () => {
 
   let pTokenMint: MockMint;
   let tokenMint: MockMint;
+  let wlTokenMint: MockMint;
   let poolOwner: MockWallet;
   let stakePool: MockStakePool;
   let governor: MockGovernor;
@@ -36,7 +37,8 @@ describe("locked voters", () => {
   });
 
   async function initEnv(params: StakePoolParams) {
-    [pTokenMint, tokenMint, poolOwner] = await Promise.all([
+    [pTokenMint, tokenMint, wlTokenMint, poolOwner] = await Promise.all([
+      MockMint.create(provider, 6),
       MockMint.create(provider, 6),
       MockMint.create(provider, 6),
       MockWallet.createWithBalance(provider, 1),
@@ -54,6 +56,7 @@ describe("locked voters", () => {
     governor = await MockGovernor.create({
       provider,
       tokenMint,
+      wlTokenMint,
       governorParams: {
         ...constants.DEFAULT_GOVERNOR_PARAMS,
       },
@@ -102,7 +105,7 @@ describe("locked voters", () => {
     });
 
     await expect(setVoteDelegateWithFail).to.eventually.be.rejectedWith(
-      'failed ({"err":{"InstructionError":[0,{"Custom":7002}]}})'
+      'failed ({"err":{"InstructionError":[0,{"Custom":7003}]}})'
     );
   });
 
@@ -424,8 +427,8 @@ describe("locked voters", () => {
 describe("NFT locked voter", () => {
   const provider = AnchorProvider.env();
 
-  let pTokenMint: MockMint;
   let tokenMint: MockMint;
+  let wlTokenMint: MockMint;
   let governor: MockGovernor;
   let nft: MockNFT;
 
@@ -434,7 +437,7 @@ describe("NFT locked voter", () => {
   });
 
   async function initEnv() {
-    [pTokenMint, tokenMint, nft] = await Promise.all([
+    [tokenMint, wlTokenMint, nft] = await Promise.all([
       MockMint.create(provider, 6),
       MockMint.create(provider, 6),
       MockNFT.create(provider),
@@ -443,6 +446,7 @@ describe("NFT locked voter", () => {
     governor = await MockGovernor.create({
       provider,
       tokenMint,
+      wlTokenMint,
       governorParams: {
         ...constants.DEFAULT_GOVERNOR_PARAMS,
       },
@@ -452,6 +456,7 @@ describe("NFT locked voter", () => {
     });
 
     await governor.initTreasury();
+    await governor.setWlMintAuthority();
   }
 
   it("user can mint a nft", async () => {
@@ -473,7 +478,7 @@ describe("NFT locked voter", () => {
     });
   });
 
-  it("user can lock NFT and earn reward", async () => {
+  it("user can lock NFT, earn WL tokens, and earn reward", async () => {
     let treasuryAmount = new anchor.BN(1_000_000_000_000);
 
     await tokenMint.mintToAddress(
@@ -498,13 +503,15 @@ describe("NFT locked voter", () => {
       nft,
     });
 
-    let [locker, escrow, treasury, lockedTokens, userNft] = await Promise.all([
-      governor.fetchLocker(),
-      user.fetchEscrow(),
-      tokenMint.getTokenAccount(await governor.getTreasuryAddress()),
-      tokenMint.getAssociatedTokenAccount(user.escrow),
-      nft.mint.tryGetAssociatedTokenAccount(user.wallet.publicKey),
-    ]);
+    let [locker, escrow, treasury, lockedTokens, userNft, userWlTokens] =
+      await Promise.all([
+        governor.fetchLocker(),
+        user.fetchEscrow(),
+        tokenMint.getTokenAccount(await governor.getTreasuryAddress()),
+        tokenMint.getAssociatedTokenAccount(user.escrow),
+        nft.mint.tryGetAssociatedTokenAccount(user.wallet.publicKey),
+        wlTokenMint.getAssociatedTokenAccount(user.wallet.publicKey),
+      ]);
 
     const rewardAmount = await governor.calcRewardAmountAt();
     treasuryAmount = treasuryAmount.sub(rewardAmount);
@@ -513,6 +520,7 @@ describe("NFT locked voter", () => {
       account: locker,
       base: governor.lockerBase.publicKey,
       tokenMint: tokenMint.address,
+      wlTokenMint: wlTokenMint.address,
       lockedSupply: rewardAmount,
       governor: governor.governor.governorKey,
       params: {
@@ -543,6 +551,13 @@ describe("NFT locked voter", () => {
       account: lockedTokens,
       mint: tokenMint.address,
       amount: rewardAmount,
+    });
+
+    // Check WL token mint against burning NFT
+    checkTokenAccount({
+      account: userWlTokens,
+      mint: wlTokenMint.address,
+      amount: new anchor.BN(1 * 10 ** 6),
     });
 
     assert.strictEqual(userNft, null);

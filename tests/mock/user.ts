@@ -70,6 +70,13 @@ export class MockUser {
     return undefined;
   }
 
+  get wlTokenMint(): MockMint | undefined {
+    if (this.governor) {
+      return this.governor.wlTokenMint;
+    }
+    return undefined;
+  }
+
   constructor({ provider, poolInfo, governor }: MockUserArgs) {
     this.provider = provider;
     this.stakeProgram = anchor.workspace.Stake as Program<Stake>;
@@ -420,19 +427,39 @@ export class MockUser {
     }
 
     let lockedTokens = await this.getLockedTokensAddress();
-    let preInstruction: anchor.web3.TransactionInstruction | undefined =
-      undefined;
+    let preInstruction: anchor.web3.TransactionInstruction[] = [];
 
     if (
       (await this.tokenMint.tryGetAssociatedTokenAccount(this.escrow)) === null
     ) {
-      preInstruction = Token.createAssociatedTokenAccountInstruction(
-        ASSOCIATED_TOKEN_PROGRAM_ID,
-        TOKEN_PROGRAM_ID,
-        this.tokenMint.address,
-        lockedTokens,
-        this.escrow,
+      preInstruction.push(
+        Token.createAssociatedTokenAccountInstruction(
+          ASSOCIATED_TOKEN_PROGRAM_ID,
+          TOKEN_PROGRAM_ID,
+          this.tokenMint.address,
+          lockedTokens,
+          this.escrow,
+          this.wallet.publicKey
+        )
+      );
+    }
+
+    let wlDestination = await this.getWLTokenAddress();
+
+    if (
+      (await this.wlTokenMint.tryGetAssociatedTokenAccount(
         this.wallet.publicKey
+      )) === null
+    ) {
+      preInstruction.push(
+        Token.createAssociatedTokenAccountInstruction(
+          ASSOCIATED_TOKEN_PROGRAM_ID,
+          TOKEN_PROGRAM_ID,
+          this.wlTokenMint.address,
+          wlDestination,
+          this.wallet.publicKey,
+          this.wallet.publicKey
+        )
       );
     }
 
@@ -455,10 +482,12 @@ export class MockUser {
           this.wallet.publicKey
         ),
         nftSourceAuthority: this.wallet.publicKey,
+        wlTokenMint: this.wlTokenMint.address,
+        wlDestination,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
-      .preInstructions([preInstruction])
+      .preInstructions([...preInstruction])
       .remainingAccounts([...remainingAccounts])
       .transaction();
   }
@@ -668,6 +697,15 @@ export class MockUser {
   public async getLockedTokensAddress() {
     if (this.tokenMint) {
       return await this.tokenMint.getAssociatedTokenAddress(this.escrow);
+    }
+    return null;
+  }
+
+  public async getWLTokenAddress() {
+    if (this.wlTokenMint) {
+      return await this.wlTokenMint.getAssociatedTokenAddress(
+        this.wallet.publicKey
+      );
     }
     return null;
   }

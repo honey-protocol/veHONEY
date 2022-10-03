@@ -1,6 +1,6 @@
 use crate::*;
 use anchor_lang::solana_program::program::invoke;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 use mpl_token_metadata::state::{Metadata, TokenMetadataAccount};
 use num_traits::ToPrimitive;
 
@@ -42,6 +42,12 @@ pub struct LockNft<'info> {
     pub nft_source: Box<Account<'info, TokenAccount>>,
     /// authority of the nft.
     pub nft_source_authority: Signer<'info>,
+    /// WL token mint
+    #[account(mut)]
+    pub wl_token_mint: Box<Account<'info, Mint>>,
+    /// WL token destination.
+    #[account(mut)]
+    pub wl_destination: Box<Account<'info, TokenAccount>>,
 
     /// system program
     pub system_program: Program<'info, System>,
@@ -104,6 +110,26 @@ impl<'info> LockNft<'info> {
             next_escrow_started_at,
             next_escrow_ends_at,
             true,
+        )?;
+
+        Ok(())
+    }
+
+    pub fn mint_wl_token(&self, amount: u64) -> Result<()> {
+        let amount = unwrap_int!(amount.checked_mul(10u64.pow(self.wl_token_mint.decimals as u32)));
+        let seeds: &[&[&[u8]]] = locker_seeds!(self.locker);
+
+        token::mint_to(
+            CpiContext::new(
+                self.token_program.to_account_info(),
+                token::MintTo {
+                    to: self.wl_destination.to_account_info(),
+                    mint: self.wl_token_mint.to_account_info(),
+                    authority: self.locker.to_account_info(),
+                },
+            )
+            .with_signer(seeds),
+            amount,
         )?;
 
         Ok(())
@@ -257,11 +283,18 @@ pub fn handler<'info>(
 
     burn_nft(&ctx)?;
 
+    ctx.accounts.mint_wl_token(1)?;
+
     Ok(())
 }
 
 impl<'info> Validate<'info> for LockNft<'info> {
     fn validate(&self) -> Result<()> {
+        assert_keys_eq!(
+            self.wl_token_mint,
+            self.locker.wl_token_mint,
+            ProtocolError::InvalidLockerWLMint
+        );
         assert_keys_eq!(
             self.locker,
             self.escrow.locker,

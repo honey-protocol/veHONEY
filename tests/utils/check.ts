@@ -39,6 +39,7 @@ export type CheckLockerArgs = {
   account: any;
   base: PublicKey;
   tokenMint: PublicKey;
+  wlTokenMint: PublicKey;
   lockedSupply: anchor.BN;
   governor: PublicKey;
   params: LockerParams;
@@ -137,12 +138,14 @@ export function checkLocker({
   account,
   base,
   tokenMint,
+  wlTokenMint,
   lockedSupply,
   governor,
   params,
 }: CheckLockerArgs) {
   checkPublicKey(account.base, base, "base");
   checkPublicKey(account.tokenMint, tokenMint, "tokenMint");
+  checkPublicKey(account.wlTokenMint, wlTokenMint, "wlTokenMint");
   checkBN(account.lockedSupply, lockedSupply, "lockedSupply");
   checkPublicKey(account.governor, governor, "governor");
   checkBN(

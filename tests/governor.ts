@@ -3,10 +3,11 @@ import { AnchorProvider } from "@project-serum/anchor";
 import { assert } from "chai";
 
 import { MockGovernor, LockerParams } from "./mock/governor";
-import { MockMint } from "./mock/mint";
+import { MintHelpers, MockMint } from "./mock/mint";
 import * as constants from "./constants";
 import {
   checkLocker,
+  checkMint,
   checkProof,
   checkTokenAccount,
   checkWhitelistEntry,
@@ -18,12 +19,17 @@ describe("governor in locker", () => {
 
   let governor: MockGovernor;
   let tokenMint: MockMint;
+  let wlTokenMint: MockMint;
 
   beforeEach(async () => {
-    tokenMint = await MockMint.create(provider, 6);
+    [tokenMint, wlTokenMint] = await Promise.all([
+      MockMint.create(provider, 6),
+      MockMint.create(provider, 6),
+    ]);
     governor = await MockGovernor.create({
       provider,
       tokenMint,
+      wlTokenMint,
       governorParams: {
         ...constants.DEFAULT_GOVERNOR_PARAMS,
       },
@@ -39,6 +45,7 @@ describe("governor in locker", () => {
       account: lockerAccount,
       base: governor.lockerBase.publicKey,
       tokenMint: tokenMint.address,
+      wlTokenMint: wlTokenMint.address,
       lockedSupply: new anchor.BN(0),
       governor: governor.governor.governorKey,
       params: {
@@ -67,6 +74,7 @@ describe("governor in locker", () => {
       account: lockerAccount,
       base: governor.lockerBase.publicKey,
       tokenMint: tokenMint.address,
+      wlTokenMint: wlTokenMint.address,
       lockedSupply: new anchor.BN(0),
       governor: governor.governor.governorKey,
       params: {
@@ -126,5 +134,35 @@ describe("governor in locker", () => {
     proofAccount = await governor.fetchProof(proofAddress.publicKey);
 
     assert.strictEqual(proofAccount, null);
+  });
+
+  it("can be set/reclaim mint authority of WL tokens", async () => {
+    await governor.setWlMintAuthority();
+
+    let wlMintAccount = await MintHelpers.getMintAccount(
+      provider.connection,
+      wlTokenMint.address
+    );
+
+    checkMint({
+      account: wlMintAccount,
+      decimals: 6,
+      mintAuthority: governor.locker,
+    });
+
+    const newMintAuthority = anchor.web3.Keypair.generate();
+
+    await governor.reclaimWlMintAuthority(newMintAuthority.publicKey);
+
+    wlMintAccount = await MintHelpers.getMintAccount(
+      provider.connection,
+      wlTokenMint.address
+    );
+
+    checkMint({
+      account: wlMintAccount,
+      decimals: 6,
+      mintAuthority: newMintAuthority.publicKey,
+    });
   });
 });
