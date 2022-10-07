@@ -22,6 +22,7 @@
     },
     "scripts": {
         "build": "tsc",
+        "build:mig": "tsc && mv dist/esm/migrations/*.* migrations/",
         "test": "mocha --timeout 1000000 --require source-map-support/register dist/esm/tests/*.js"
     }
 }
