@@ -44,11 +44,11 @@ pub fn conversion_ratio(duration: i64) -> Result<u64> {
     // for tests
     // match duration {
     //     // 3 months option 89 - 92 days
-    //     1 => Ok(2),
+    //     30 => Ok(2),
     //     // 6 months
-    //     3 => Ok(5),
+    //     60 => Ok(5),
     //     // 12 months
-    //     12 => Ok(10),
-    //     _ => Err(ErrorCode::InvalidParam.into()),
+    //     120 => Ok(10),
+    //     _ => Err(error!(ProtocolError::InvalidParams)),
     // }
 }
