@@ -9,7 +9,7 @@ import {
   SmartWalletWrapper,
   findSmartWallet,
 } from "@gokiprotocol/client";
-import { SolanaProvider } from "@saberhq/solana-contrib";
+import { PublicKey, SolanaProvider } from "@saberhq/solana-contrib";
 import { TOKEN_PROGRAM_ID } from "@saberhq/token-utils";
 
 import { VeHoney } from "../target/types/ve_honey";
@@ -26,7 +26,7 @@ const LOCKER_SEED = "Locker";
 // const ESCROW_SEED = "Escrow";
 const WHITELIST_ENTRY_SEED = "LockerWhitelistEntry";
 const TREASURY_SEED = "Treasury";
-// const PROOF_SEED = "Proof";
+const PROOF_SEED = "Proof";
 // const NFT_RECEIPT_SEED = "Receipt";
 const DEFAULT_DECIMALS = 6;
 const PHONEY_MINT = new anchor.web3.PublicKey(
@@ -74,6 +74,10 @@ const mintAuthority = anchor.web3.Keypair.fromSecretKey(
   Uint8Array.from(
     JSON.parse(fs.readFileSync(__dirname + "/keys/mint_auth.json", "utf8"))
   )
+);
+
+const DEVNET_VERIFIED_CREATOR = new PublicKey(
+  "42danWebKzfEusPA59qfCNq1bQmHbGfATmUiXbiacLkR"
 );
 
 function printInfo(message: string) {
@@ -386,6 +390,41 @@ module.exports = async function (provider: anchor.AnchorProvider) {
     // console.error(e);
   }
 
+  // add proof for verified creator
+  const [proof] = await anchor.web3.PublicKey.findProgramAddress(
+    [
+      Buffer.from(PROOF_SEED),
+      locker.toBuffer(),
+      DEVNET_VERIFIED_CREATOR.toBuffer(),
+    ],
+    veHoneyProgram.programId
+  );
+
+  try {
+    const addProofIx = await veHoneyProgram.methods
+      .addProof(1)
+      .accounts({
+        payer: provider.wallet.publicKey,
+        locker,
+        proof,
+        address: DEVNET_VERIFIED_CREATOR,
+        governor,
+        smartWallet: smartWalletWrapper.key,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .instruction();
+
+    await executeTransactionBySmartWallet({
+      smartWalletWrapper,
+      instructions: [addProofIx],
+      proposer: owner,
+    });
+    printInfo("√ Added a proof for a verified creator ...");
+  } catch (e) {
+    printError("x Proof addition error!");
+    // console.error(e);
+  }
+
   console.log("\n");
   console.log("Programs:");
   console.log("  - Stake program: ", stakeProgram.programId.toBase58());
@@ -416,6 +455,9 @@ module.exports = async function (provider: anchor.AnchorProvider) {
   console.log("  - Governor: ", governor.toBase58());
   console.log("  - Treasury: ", treasury.toBase58());
   console.log("  - HGB Whitelist Token: ", WL_TOKEN.toBase58());
+  console.log("  - Whitelist entry: ", whitelistEntry.toBase58());
+  console.log("  - Verified creator: ", DEVNET_VERIFIED_CREATOR.toBase58());
+  console.log("  - Proof for the creator: ", proof.toBase58());
   console.log("  - Parameters:");
   console.log(
     "    Min stake duration: ",
