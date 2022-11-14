@@ -194,6 +194,24 @@ module.exports = async function (provider: anchor.AnchorProvider) {
     // console.error(e);
   }
 
+  // try {
+  //   const reclaimMintAuthorityTx = await stakeProgram.methods
+  //     .reclaimMintAuthority(provider.wallet.publicKey)
+  //     .accounts({
+  //       owner: stakePoolOwner.publicKey,
+  //       poolInfo: stakePool,
+  //       tokenMint: HONEY_MINT,
+  //       authority: vaultAuthority,
+  //       tokenProgram: TOKEN_PROGRAM_ID,
+  //     })
+  //     .transaction();
+
+  //   await provider.sendAndConfirm(reclaimMintAuthorityTx, [stakePoolOwner]);
+  //   printInfo("√ Reclaimed mint authority of HONEY with the wallet ...");
+  // } catch (e) {
+  //   printError("x Reclaim mint authority error!");
+  // }
+
   // Tribeca and Goki SDKs load
   const governorSDK = TribecaSDK.load({
     provider: SolanaProvider.init({
@@ -266,7 +284,7 @@ module.exports = async function (provider: anchor.AnchorProvider) {
   // Init locker ======================================================
 
   const lockerParams = {
-    minStakeDuration: new anchor.BN(30),
+    minStakeDuration: new anchor.BN(10),
     maxStakeDuration: new anchor.BN(480),
     whitelistEnabled: true,
     multiplier: 1,
@@ -299,6 +317,25 @@ module.exports = async function (provider: anchor.AnchorProvider) {
   } catch (e) {
     printError("x Locker initialization error!");
     // console.error(e);
+  }
+
+  try {
+    const setLockerParamsIx = await veHoneyProgram.methods
+      .setLockerParams(lockerParams)
+      .accounts({
+        locker,
+        governor,
+        smartWallet,
+      })
+      .instruction();
+    await executeTransactionBySmartWallet({
+      smartWalletWrapper,
+      instructions: [setLockerParamsIx],
+      proposer: owner,
+    });
+    printInfo("√ Updated locker params ...");
+  } catch (e) {
+    printError("x locker params setting error!");
   }
 
   // smartWalletWrapper = await gokiSDK.loadSmartWallet(smartWallet);
