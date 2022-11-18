@@ -49,6 +49,10 @@ impl<'info> Unlock<'info> {
         let escrow = &mut self.escrow;
         let locker = &mut self.locker;
         escrow.amount = unwrap_int!(escrow.amount.checked_sub(unlock_amount));
+        if escrow.amount == 0 {
+            escrow.escrow_started_at = 0;
+            escrow.escrow_ends_at = 0;
+        }
         locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(unlock_amount));
 
         emit!(ExitEscrowEvent {
