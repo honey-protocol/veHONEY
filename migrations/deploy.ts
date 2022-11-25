@@ -257,8 +257,8 @@ module.exports = async function (provider: anchor.AnchorProvider) {
   }
 
   const governorParams = {
-    votingDelay: new anchor.BN(1),
-    votingPeriod: new anchor.BN(5),
+    votingDelay: new anchor.BN(30),
+    votingPeriod: new anchor.BN(24 * 60 * 60),
     quorumVotes: new anchor.BN(50).muln(10 ** DEFAULT_DECIMALS),
     timelockDelaySeconds: new anchor.BN(0),
   };
@@ -277,6 +277,27 @@ module.exports = async function (provider: anchor.AnchorProvider) {
   } catch (e) {
     printError("x Governor creation error!");
     // console.error(e);
+  }
+
+  try {
+    const setGovernanceParamsIx =
+      governorSDK.govern.program.instruction.setGovernanceParams(
+        governorParams,
+        {
+          accounts: {
+            governor,
+            smartWallet,
+          },
+        }
+      );
+    await executeTransactionBySmartWallet({
+      smartWalletWrapper,
+      instructions: [setGovernanceParamsIx],
+      proposer: owner,
+    });
+    printInfo("√ Updated governance params ...");
+  } catch (e) {
+    printError("x Governance params setting error!");
   }
 
   // ==================================================================
