@@ -52,10 +52,7 @@ impl<'info> CastVote<'info> {
     }
 
     fn voting_power(&self) -> Result<u64> {
-        Ok(unwrap_int!(self.escrow.voting_power_at_time(
-            &self.locker.params,
-            self.proposal.voting_ends_at
-        )))
+        self.escrow.voting_power(&self.locker.params)
     }
 }
 
