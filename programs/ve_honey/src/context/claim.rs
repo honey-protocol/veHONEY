@@ -55,6 +55,11 @@ impl<'info> Claim<'info> {
 
         nft_receipt.update_receipt(locker, escrow, claim_amount)?;
 
+        if escrow.amount == 0 {
+            escrow.escrow_started_at = 0;
+            escrow.escrow_ends_at = 0;
+        }
+
         Ok(())
     }
 }
