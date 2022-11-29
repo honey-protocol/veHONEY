@@ -28,7 +28,7 @@ jobs:
         continue-on-error: true
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --workspace --all-features
+          args: --all-targets -- -D warnings
       - run: cargo build --verbose
       - run: cargo test --verbose
 
