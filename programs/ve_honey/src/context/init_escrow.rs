@@ -1,7 +1,4 @@
-use crate::constants::*;
-use crate::state::*;
-use anchor_lang::prelude::*;
-use vipers::*;
+use crate::*;
 
 #[derive(Accounts)]
 pub struct InitEscrow<'info> {
@@ -45,6 +42,9 @@ impl<'info> InitEscrow<'info> {
         escrow.amount = 0;
         escrow.escrow_started_at = 0;
         escrow.escrow_ends_at = 0;
+        escrow.receipt_count = 0;
+        escrow.amount_to_receipt = 0;
+
         escrow.vote_delegate = self.escrow_owner.key();
 
         emit!(InitEscrowEvent {

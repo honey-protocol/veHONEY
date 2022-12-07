@@ -1,11 +1,8 @@
-use crate::error::*;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use anchor_lang::solana_program::system_program;
 use anchor_lang::solana_program::sysvar::instructions::get_instruction_relative;
 use anchor_spl::token::{self, Token, TokenAccount};
 use num_traits::ToPrimitive;
-use vipers::*;
 
 #[derive(Accounts)]
 pub struct Lock<'info> {
@@ -66,7 +63,13 @@ impl<'info> Lock<'info> {
         let locker = &mut self.locker;
         let escrow = &mut self.escrow;
 
-        escrow.update_lock_event(locker, amount, next_escrow_started_at, next_escrow_ends_at)?;
+        escrow.update_lock_event(
+            locker,
+            amount,
+            next_escrow_started_at,
+            next_escrow_ends_at,
+            false,
+        )?;
 
         emit!(LockEvent {
             locker: locker.key(),
@@ -118,13 +121,36 @@ impl<'info> Lock<'info> {
 
 impl<'info> Validate<'info> for Lock<'info> {
     fn validate(&self) -> Result<()> {
-        assert_keys_eq!(self.locker, self.escrow.locker);
-        assert_keys_eq!(self.escrow.tokens, self.locked_tokens);
-        assert_keys_eq!(self.escrow.owner, self.escrow_owner);
-        assert_keys_eq!(self.source_tokens.owner, self.source_tokens_authority);
-
-        assert_keys_eq!(self.source_tokens.mint, self.locker.token_mint);
-        assert_keys_neq!(self.source_tokens, self.locked_tokens);
+        assert_keys_eq!(
+            self.locker,
+            self.escrow.locker,
+            ProtocolError::InvalidLocker
+        );
+        assert_keys_eq!(
+            self.escrow.tokens,
+            self.locked_tokens,
+            ProtocolError::InvalidToken
+        );
+        assert_keys_neq!(
+            self.source_tokens,
+            self.locked_tokens,
+            ProtocolError::InvalidToken
+        );
+        assert_keys_eq!(
+            self.escrow.owner,
+            self.escrow_owner,
+            ProtocolError::InvalidAccountOwner
+        );
+        assert_keys_eq!(
+            self.source_tokens.owner,
+            self.source_tokens_authority,
+            ProtocolError::InvalidTokenOwner
+        );
+        assert_keys_eq!(
+            self.source_tokens.mint,
+            self.locker.token_mint,
+            ProtocolError::InvalidLockerMint
+        );
 
         Ok(())
     }

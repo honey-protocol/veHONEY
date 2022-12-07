@@ -1,11 +1,6 @@
-use crate::constants::*;
-use crate::error::*;
-use crate::locker_seeds;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use govern::program::Govern;
 use govern::{Governor, Proposal, ProposalState, Vote};
-use vipers::*;
 
 #[derive(Accounts)]
 pub struct CastVote<'info> {
@@ -37,12 +32,12 @@ impl<'info> CastVote<'info> {
         }
 
         let seeds: &[&[&[u8]]] = locker_seeds!(self.locker);
-        govern::cpi::set_vote(self.into_set_vote_context(seeds), side, voting_power)?;
+        govern::cpi::set_vote(self.to_set_vote_context(seeds), side, voting_power)?;
 
         Ok(())
     }
 
-    fn into_set_vote_context<'a, 'b, 'c>(
+    fn to_set_vote_context<'a, 'b, 'c>(
         &self,
         signer: &'a [&'b [&'c [u8]]],
     ) -> CpiContext<'a, 'b, 'c, 'info, govern::cpi::accounts::SetVote<'info>> {
@@ -57,21 +52,42 @@ impl<'info> CastVote<'info> {
     }
 
     fn voting_power(&self) -> Result<u64> {
-        Ok(unwrap_int!(self.escrow.voting_power_at_time(
-            &self.locker.params,
-            self.proposal.voting_ends_at
-        )))
+        self.escrow.voting_power(&self.locker.params)
     }
 }
 
 impl<'info> Validate<'info> for CastVote<'info> {
     fn validate(&self) -> Result<()> {
-        assert_keys_eq!(self.escrow.locker, self.locker);
-        assert_keys_eq!(self.escrow.vote_delegate, self.vote_delegate);
-        assert_keys_eq!(self.locker.governor, self.governor);
-        assert_keys_eq!(self.proposal.governor, self.governor);
-        assert_keys_eq!(self.vote.proposal, self.proposal);
-        assert_keys_eq!(self.vote.voter, self.escrow.owner);
+        assert_keys_eq!(
+            self.escrow.locker,
+            self.locker,
+            ProtocolError::InvalidLocker
+        );
+        assert_keys_eq!(
+            self.escrow.vote_delegate,
+            self.vote_delegate,
+            ProtocolError::InvalidVoteDelegate
+        );
+        assert_keys_eq!(
+            self.locker.governor,
+            self.governor,
+            ProtocolError::GovernorMismatch
+        );
+        assert_keys_eq!(
+            self.proposal.governor,
+            self.governor,
+            ProtocolError::GovernorMismatch
+        );
+        assert_keys_eq!(
+            self.vote.proposal,
+            self.proposal,
+            ProtocolError::ProposalMismatch
+        );
+        assert_keys_eq!(
+            self.vote.voter,
+            self.escrow.owner,
+            ProtocolError::VoterMismatch
+        );
         invariant!(
             self.proposal.get_state()? == ProposalState::Active,
             ProtocolError::ProposalMustBeActive

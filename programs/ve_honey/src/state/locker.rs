@@ -1,5 +1,5 @@
-use crate::state::*;
-use anchor_lang::{prelude::*, solana_program::pubkey::PUBKEY_BYTES};
+use crate::*;
+use anchor_lang::solana_program::pubkey::PUBKEY_BYTES;
 use num_traits::ToPrimitive;
 
 #[account]
@@ -13,6 +13,8 @@ pub struct Locker {
     pub token_mint: Pubkey,
     /// Total number of tokens locked in the escrow.
     pub locked_supply: u64,
+    /// Mint of the WL token that is minted against burning NFT.
+    pub wl_token_mint: Pubkey,
 
     /// Governor of the [Locker].
     pub governor: Pubkey,
@@ -22,7 +24,8 @@ pub struct Locker {
 }
 
 impl Locker {
-    pub const LEN: usize = PUBKEY_BYTES + 1 + PUBKEY_BYTES + 8 + PUBKEY_BYTES + LockerParams::LEN;
+    pub const LEN: usize =
+        PUBKEY_BYTES + 1 + PUBKEY_BYTES + 8 + PUBKEY_BYTES + PUBKEY_BYTES + LockerParams::LEN;
 }
 
 #[derive(AnchorDeserialize, AnchorSerialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,10 +40,18 @@ pub struct LockerParams {
     pub multiplier: u8,
     /// Minimum number of votes required to activate a proposal.
     pub proposal_activation_min_votes: u64,
+    /// NFT stake duration unit.
+    pub nft_stake_duration_unit: i64,
+    /// NFT stake base reward
+    pub nft_stake_base_reward: u64,
+    /// NFT stake duration count.
+    pub nft_stake_duration_count: u8,
+    /// First halving count.
+    pub nft_reward_halving_starts_at: u8,
 }
 
 impl LockerParams {
-    pub const LEN: usize = 8 + 8 + 1 + 1 + 8;
+    pub const LEN: usize = 8 + 8 + 1 + 1 + 8 + 8 + 8 + 1 + 1;
 
     pub fn calculate_voter_power(&self, escrow: &Escrow, now: i64) -> Option<u64> {
         if now == 0 {
@@ -69,5 +80,36 @@ impl LockerParams {
             .to_u64()?;
 
         Some(power)
+    }
+
+    pub fn calculate_reward_amount(&self, duration: i64) -> Option<u64> {
+        if duration <= 0 {
+            return None;
+        }
+
+        let mut duration: u64 = duration as u64;
+        let mut reward_amount: u64 = 0;
+        let mut count: u8 = 0;
+        let mut amount_per_unit = self.nft_stake_base_reward;
+
+        while let Some(next_duration) = duration.checked_sub(self.nft_stake_duration_unit as u64) {
+            if count >= self.nft_reward_halving_starts_at {
+                amount_per_unit /= 2;
+            }
+            reward_amount = reward_amount.checked_add(amount_per_unit)?;
+            count += 1;
+            duration = next_duration;
+        }
+
+        Some(reward_amount)
+    }
+
+    pub fn calculate_nft_max_stake_duration(&self) -> Option<i64> {
+        self.nft_stake_duration_unit
+            .checked_mul(self.nft_stake_duration_count as i64)
+    }
+
+    pub fn calculate_max_reward_amount(&self) -> Option<u64> {
+        self.calculate_reward_amount(self.calculate_nft_max_stake_duration()?)
     }
 }

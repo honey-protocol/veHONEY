@@ -1,11 +1,6 @@
-use crate::constants::*;
-use crate::error::*;
-use crate::locker_seeds;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use govern::program::Govern;
 use govern::{Governor, Proposal};
-use vipers::*;
 
 #[derive(Accounts)]
 pub struct ActivateProposal<'info> {
@@ -28,12 +23,12 @@ impl<'info> ActivateProposal<'info> {
     /// Activates the proposal.
     pub fn process(&mut self) -> Result<()> {
         let seeds: &[&[&[u8]]] = locker_seeds!(self.locker);
-        govern::cpi::activate_proposal(self.into_activate_proposal_context(seeds))?;
+        govern::cpi::activate_proposal(self.to_activate_proposal_context(seeds))?;
 
         Ok(())
     }
 
-    fn into_activate_proposal_context<'a, 'b, 'c>(
+    fn to_activate_proposal_context<'a, 'b, 'c>(
         &self,
         signer: &'a [&'b [&'c [u8]]],
     ) -> CpiContext<'a, 'b, 'c, 'info, govern::cpi::accounts::ActivateProposal<'info>> {
@@ -53,11 +48,31 @@ impl<'info> ActivateProposal<'info> {
 
 impl<'info> Validate<'info> for ActivateProposal<'info> {
     fn validate(&self) -> Result<()> {
-        assert_keys_eq!(self.locker, self.governor.electorate);
-        assert_keys_eq!(self.governor, self.locker.governor);
-        assert_keys_eq!(self.proposal.governor, self.governor);
-        assert_keys_eq!(self.escrow.locker, self.locker);
-        assert_keys_eq!(self.escrow.owner, self.escrow_owner);
+        assert_keys_eq!(
+            self.locker,
+            self.governor.electorate,
+            ProtocolError::InvalidGovernorParams
+        );
+        assert_keys_eq!(
+            self.governor,
+            self.locker.governor,
+            ProtocolError::GovernorMismatch
+        );
+        assert_keys_eq!(
+            self.proposal.governor,
+            self.governor,
+            ProtocolError::GovernorMismatch
+        );
+        assert_keys_eq!(
+            self.escrow.locker,
+            self.locker,
+            ProtocolError::InvalidLocker
+        );
+        assert_keys_eq!(
+            self.escrow.owner,
+            self.escrow_owner,
+            ProtocolError::InvalidAccountOwner
+        );
 
         invariant!(
             self.voting_power()? >= self.locker.params.proposal_activation_min_votes,

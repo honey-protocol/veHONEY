@@ -1,6 +1,6 @@
 [package]
 name = "stake"
-version = "0.1.0"
+version = "2.0.0"
 description = "Created with Anchor"
 edition = "2018"
 
@@ -16,9 +16,9 @@ cpi = ["no-entrypoint"]
 default = []
 
 [dependencies]
-anchor-lang = { version = "0.22.1", features = ["init-if-needed"]}
-anchor-spl = "0.22.1"
+anchor-lang = ">=0.22"
+anchor-spl = ">=0.22"
 spl-token = { version = "3.3.0", features = ["no-entrypoint"] }
 num-traits = "0.2"
-ve_honey = { path = "../ve_honey", features = ["cpi"], version = "0.1" }
+ve_honey = { path = "../ve_honey", features = ["cpi"], version = "2.0" }
 vipers = "^2.0"

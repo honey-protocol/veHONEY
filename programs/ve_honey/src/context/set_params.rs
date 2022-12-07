@@ -1,8 +1,5 @@
-use crate::error::*;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use govern::Governor;
-use vipers::*;
 
 #[derive(Accounts)]
 pub struct SetLockerParams<'info> {
@@ -30,7 +27,11 @@ impl<'info> Validate<'info> for SetLockerParams<'info> {
             self.locker.governor,
             ProtocolError::GovernorMismatch
         );
-        assert_keys_eq!(self.smart_wallet, self.governor.smart_wallet);
+        assert_keys_eq!(
+            self.smart_wallet,
+            self.governor.smart_wallet,
+            ProtocolError::SmartWalletMismatch
+        );
 
         Ok(())
     }

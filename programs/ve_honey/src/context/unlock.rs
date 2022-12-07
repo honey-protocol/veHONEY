@@ -1,21 +1,16 @@
-use crate::constants::*;
-use crate::error::*;
-use crate::escrow_seeds;
-use crate::state::*;
-use anchor_lang::prelude::*;
+use crate::*;
 use anchor_spl::token::{self, Token, TokenAccount};
-use vipers::*;
 
 #[derive(Accounts)]
-pub struct Exit<'info> {
+pub struct Unlock<'info> {
     /// Payer.
     #[account(mut)]
     pub payer: Signer<'info>,
     /// [Locker].
     #[account(mut)]
     pub locker: Box<Account<'info, Locker>>,
-    /// [Escrow] that is being closed.
-    #[account(mut, has_one = locker, close = payer)]
+    /// [Escrow] that is being exited.
+    #[account(mut)]
     pub escrow: Box<Account<'info, Escrow>>,
     /// Authority of the [Escrow].
     pub escrow_owner: Signer<'info>,
@@ -30,27 +25,35 @@ pub struct Exit<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-impl<'info> Exit<'info> {
+impl<'info> Unlock<'info> {
     pub fn process(&mut self) -> Result<()> {
+        let unlock_amount = self.escrow.unlock_amount()?;
+
+        invariant!(unlock_amount > 0, ProtocolError::EscrowNoBalance);
+
         let seeds: &[&[&[u8]]] = escrow_seeds!(self.escrow);
 
-        if self.escrow.amount > 0 {
-            token::transfer(
-                CpiContext::new(
-                    self.token_program.to_account_info(),
-                    token::Transfer {
-                        from: self.locked_tokens.to_account_info(),
-                        to: self.destination_tokens.to_account_info(),
-                        authority: self.escrow.to_account_info(),
-                    },
-                )
-                .with_signer(seeds),
-                self.escrow.amount,
-            )?;
-        }
+        token::transfer(
+            CpiContext::new(
+                self.token_program.to_account_info(),
+                token::Transfer {
+                    from: self.locked_tokens.to_account_info(),
+                    to: self.destination_tokens.to_account_info(),
+                    authority: self.escrow.to_account_info(),
+                },
+            )
+            .with_signer(seeds),
+            unlock_amount,
+        )?;
 
+        let escrow = &mut self.escrow;
         let locker = &mut self.locker;
-        locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(self.escrow.amount));
+        escrow.amount = unwrap_int!(escrow.amount.checked_sub(unlock_amount));
+        if escrow.amount == 0 {
+            escrow.escrow_started_at = 0;
+            escrow.escrow_ends_at = 0;
+        }
+        locker.locked_supply = unwrap_int!(locker.locked_supply.checked_sub(unlock_amount));
 
         emit!(ExitEscrowEvent {
             escrow_owner: self.escrow.owner,
@@ -64,11 +67,28 @@ impl<'info> Exit<'info> {
     }
 }
 
-impl<'info> Validate<'info> for Exit<'info> {
+impl<'info> Validate<'info> for Unlock<'info> {
     fn validate(&self) -> Result<()> {
-        assert_keys_eq!(self.locker, self.escrow.locker);
-        assert_keys_eq!(self.escrow.owner, self.escrow_owner);
-        assert_keys_eq!(self.escrow.tokens, self.locked_tokens);
+        assert_keys_eq!(
+            self.locker,
+            self.escrow.locker,
+            ProtocolError::InvalidLocker
+        );
+        assert_keys_eq!(
+            self.escrow_owner,
+            self.escrow.owner,
+            ProtocolError::InvalidAccountOwner
+        );
+        assert_keys_eq!(
+            self.locked_tokens,
+            self.escrow.tokens,
+            ProtocolError::InvalidToken
+        );
+        assert_keys_neq!(
+            self.locked_tokens,
+            self.destination_tokens,
+            ProtocolError::InvalidToken
+        );
         let now = Clock::get()?.unix_timestamp;
         msg!(
             "now: {}; escrow_ends_at: {}",
@@ -79,8 +99,6 @@ impl<'info> Validate<'info> for Exit<'info> {
             self.escrow.escrow_ends_at < now,
             ProtocolError::EscrowNotEnded
         );
-
-        assert_keys_neq!(self.locked_tokens, self.destination_tokens);
 
         Ok(())
     }
