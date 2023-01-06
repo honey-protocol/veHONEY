@@ -20,7 +20,7 @@ stake = "4V68qajTiVHm3Pm9fQoV8D4tEYBmq3a34R9NV5TymLr7"
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "mainnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

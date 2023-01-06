@@ -6,4 +6,4 @@ then
     yarn install && yarn build
 fi
 
-anchor test --skip-build
+anchor test --skip-build --provider.cluster localnet
