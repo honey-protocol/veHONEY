@@ -35,7 +35,7 @@ pub fn conversion_ratio(duration: i64) -> Result<u64> {
         // 3 months option 89 - 92 days
         7_689_600..=7_948_800 => Ok(2),
         // 6 months
-        15_638_400..=15_897_600 => Ok(5),
+        15_634_800..=15_897_600 => Ok(5),
         // 12 months
         31_536_000..=31_622_400 => Ok(10),
         _ => Err(error!(ProtocolError::InvalidParams)),
