@@ -57,7 +57,7 @@ describe("stake pool management", () => {
     const initPoolWithFail = initPool({
       // startsAt should be more than now
       ...defaultStakePoolParams,
-      startsAt: new anchor.BN(Math.floor(Date.now() / 1000)),
+      startsAt: new anchor.BN(Math.floor(Date.now() / 1000) - 1),
     });
 
     await expect(initPoolWithFail).to.eventually.be.rejectedWith(
